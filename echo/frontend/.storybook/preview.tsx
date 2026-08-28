@@ -45,10 +45,25 @@ const AppProviders = ({
 			}),
 	);
 
+	// I18nProvider twice, and both are load bearing. The app does the same thing
+	// for the same two reasons (`App.tsx` and `LanguageLayout.tsx`):
+	//
+	// - Inside the router, because it reads the language off `:language` through
+	//   useParams. Outside a router that hook sees no params at all, so a story
+	//   asking for nl-NL used to fall back to en-US and silently render English.
+	// - Outside the router, because Mantine's modal portal re-enters the tree
+	//   above it, so <Trans> inside a modals.* child needs Lingui from there
+	//   down. See the comment in `App.tsx`.
+	//
+	// `i18n` is one module-level singleton, so the inner one activating a locale
+	// is what the outer one renders too.
 	const router = useMemo(
 		() =>
 			createMemoryRouter(
-				[{ element: children, path: pattern }, ...routes],
+				[
+					{ element: <I18nProvider>{children}</I18nProvider>, path: pattern },
+					...routes,
+				],
 				{ initialEntries: [path] },
 			),
 		[children, pattern, path, routes],
