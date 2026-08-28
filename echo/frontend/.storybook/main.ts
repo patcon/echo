@@ -9,6 +9,12 @@ const config: StorybookConfig = {
 		name: "@storybook/react-vite",
 		options: {},
 	},
+	// msw-storybook-addon v3 needs no `addons` entry: it is wired through
+	// `initialize()` + `mswLoader` in preview.tsx. But its service worker is
+	// fetched over HTTP, and Storybook does not inherit Vite's publicDir, so
+	// `public/mockServiceWorker.js` has to be served explicitly or every mocked
+	// request silently falls through to the network.
+	staticDirs: ["../public"],
 	stories: ["../src/**/*.stories.@(ts|tsx)"],
 };
 
