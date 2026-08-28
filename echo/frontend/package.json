@@ -16,7 +16,9 @@
     "lint:fix": "biome lint --write .",
     "check": "biome check .",
     "fix": "biome check --write .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@ai-sdk/react": "^1.2.12",
@@ -107,6 +109,7 @@
     "@lingui/swc-plugin": "^5.5.1",
     "@lingui/vite-plugin": "^5.3.3",
     "@playwright/test": "^1.61.0",
+    "@storybook/react-vite": "^10.5.10",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/react": "^16.3.2",
     "@types/d3-array": "^3.2.2",
@@ -127,6 +130,7 @@
     "postcss": "^8.5.22",
     "postcss-preset-mantine": "^1.17.0",
     "postcss-simple-vars": "^7.0.1",
+    "storybook": "^10.5.10",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
     "vite": "^6.4.3",
