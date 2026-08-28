@@ -138,28 +138,35 @@ const citationMessage = makeMessage({
 	],
 });
 
-/** Citations start folded away behind the icon in the footer. */
-export const CitationsCollapsed: Story = {
-	args: { message: citationMessage, referenceIds: [] },
-	name: "Citations — collapsed",
+/** `referenceIds` / `setReferenceIds` are a controlled pair owned by the parent
+ * chat. Both stories below need the setter, not just the value: the toggle
+ * handler is wrapped in `if (setReferenceIds)`, so a story that passes only
+ * the array renders the button and then silently swallows every click. */
+const CitationsHarness = ({ open }: { open: boolean }) => {
+	const [referenceIds, setReferenceIds] = useState(
+		open ? [citationMessage.id] : [],
+	);
+	return (
+		<ChatHistoryMessage
+			message={citationMessage}
+			referenceIds={referenceIds}
+			setReferenceIds={setReferenceIds}
+		/>
+	);
 };
 
-/** Expanded. `referenceIds` / `setReferenceIds` are controlled by the parent
- * chat, so the story owns that state to keep the toggle live rather than
- * pinning it open and leaving a dead button behind. */
+/** Citations start folded away behind the icon in the footer. Click it. */
+export const CitationsCollapsed: Story = {
+	args: { message: citationMessage },
+	name: "Citations — collapsed",
+	render: () => <CitationsHarness open={false} />,
+};
+
+/** The same message with the citations already showing. */
 export const CitationsExpanded: Story = {
 	args: { message: citationMessage },
 	name: "Citations — expanded",
-	render: () => {
-		const [referenceIds, setReferenceIds] = useState([citationMessage.id]);
-		return (
-			<ChatHistoryMessage
-				message={citationMessage}
-				referenceIds={referenceIds}
-				setReferenceIds={setReferenceIds}
-			/>
-		);
-	},
+	render: () => <CitationsHarness open />,
 };
 
 // ---------------------------------------------------------------------------
