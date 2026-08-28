@@ -48,7 +48,7 @@ export const UserMessage: Story = {
 			role: "user",
 		}),
 	},
-	name: "User message",
+	name: "User",
 };
 
 export const AssistantMessage: Story = {
@@ -58,7 +58,7 @@ export const AssistantMessage: Story = {
 				"Residents split roughly two to one in favour. The objections clustered on **parking loss** rather than on the lanes themselves.\n\n- Three people raised deliveries\n- Two raised accessible parking",
 		}),
 	},
-	name: "Assistant message",
+	name: "Assistant",
 };
 
 /** The bookmark only appears on a user message, and only when the caller can
@@ -71,7 +71,7 @@ export const SaveAsTemplate: Story = {
 		}),
 		onSaveAsTemplate: fn(),
 	},
-	name: "User message — save as template",
+	name: "User — save as template",
 };
 
 // ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ export const AutoAddedSources: Story = {
 			],
 		}),
 	},
-	name: "Auto-added sources",
+	name: "Assistant — auto-added sources",
 };
 
 const citationMessage = makeMessage({
@@ -158,14 +158,14 @@ const CitationsHarness = ({ open }: { open: boolean }) => {
 /** Citations start folded away behind the icon in the footer. Click it. */
 export const CitationsCollapsed: Story = {
 	args: { message: citationMessage },
-	name: "Citations — collapsed",
+	name: "Assistant — citations collapsed",
 	render: () => <CitationsHarness open={false} />,
 };
 
 /** The same message with the citations already showing. */
 export const CitationsExpanded: Story = {
 	args: { message: citationMessage },
-	name: "Citations — expanded",
+	name: "Assistant — citations expanded",
 	render: () => <CitationsHarness open />,
 };
 
@@ -184,7 +184,7 @@ export const PortalStartQrCode: Story = {
 			content: `Share this with the room: http://localhost:5174/en-US/${projectId}/start`,
 		}),
 	},
-	name: "Portal start link — QR code",
+	name: "Assistant — auto QR code",
 };
 
 // ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ export const AgenticPlainLink: Story = {
 /** The searching notice, shown while the agent is looking through sources. */
 export const SearchedSources: Story = {
 	args: { message: makeMessage({ content: "searched", role: "dembrane" }) },
-	name: "Searched through sources",
+	name: "Platform — searched through sources",
 };
 
 /** "Context added:" plus the conversations the person attached themselves.
@@ -275,7 +275,7 @@ export const ContextAddedUnlabelled: Story = {
 			role: "dembrane",
 		}),
 	},
-	name: "Context added — blank labels (defect)",
+	name: "Platform — context added, blank labels (defect)",
 };
 
 /** The same branch when `conversation_id` arrives expanded. */
@@ -295,5 +295,5 @@ export const ContextAdded: Story = {
 			role: "dembrane",
 		}),
 	},
-	name: "Context added",
+	name: "Platform — context added",
 };
