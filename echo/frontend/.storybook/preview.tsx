@@ -174,7 +174,10 @@ const withAppProviders: Decorator = (Story, context) => {
 // the render phase, before any effect in the tree fires.
 const withMediaMocks: Decorator = (Story, context) => {
 	const media = context.parameters.media as MediaParameters | undefined;
+	// Always reset first: a story with no `parameters.media` wants the real
+	// browser APIs, and a mock left behind by the previous story would hang it.
 	useState(() => {
+		resetMediaMock();
 		if (media) installMediaMock(media);
 		return true;
 	});

@@ -6,10 +6,12 @@
  * other `.stories.tsx` file in this repo touches these APIs, so there is no
  * existing convention to match — this establishes one.
  *
- * The patch is installed once, lazily, the first time a story asks for it via
- * `installMediaMock`; after that, stories just swap `currentConfig` in and
- * out, so there is only ever one active monkey-patch rather than a new layer
- * per story.
+ * The patch is applied and torn down per story, not installed once and left
+ * in place: a story that wants a real microphone (`RealMic` in
+ * `ParticipantSettingsModal.stories.tsx`) needs the *original*
+ * `getUserMedia`/`enumerateDevices`/`AudioContext` back, not a mock left in
+ * its default "pending" state — a permanent patch would make the real story
+ * hang forever the moment any mocked story had run before it in the same tab.
  */
 
 export type FakeMicDevice = { deviceId: string; label: string };
@@ -41,7 +43,10 @@ const DEFAULT_DEVICES: FakeMicDevice[] = [
 ];
 
 let currentConfig: MediaParameters | undefined;
-let installed = false;
+let patched = false;
+let originalGetUserMedia: MediaDevices["getUserMedia"] | undefined;
+let originalEnumerateDevices: MediaDevices["enumerateDevices"] | undefined;
+let originalAudioContext: typeof window.AudioContext | undefined;
 
 const fakeStream = (): MediaStream =>
 	({
@@ -89,9 +94,16 @@ const requestedDeviceId = (
 	return undefined;
 };
 
-const ensureInstalled = () => {
-	if (installed) return;
-	installed = true;
+const patch = () => {
+	if (patched) return;
+	patched = true;
+	originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(
+		navigator.mediaDevices,
+	);
+	originalEnumerateDevices = navigator.mediaDevices.enumerateDevices.bind(
+		navigator.mediaDevices,
+	);
+	originalAudioContext = window.AudioContext;
 
 	navigator.mediaDevices.getUserMedia = async (constraints) => {
 		const config = currentConfig;
@@ -128,11 +140,31 @@ const ensureInstalled = () => {
 	window.AudioContext = FakeAudioContext;
 };
 
+const unpatch = () => {
+	if (!patched) return;
+	patched = false;
+	if (originalGetUserMedia) {
+		navigator.mediaDevices.getUserMedia = originalGetUserMedia;
+	}
+	if (originalEnumerateDevices) {
+		navigator.mediaDevices.enumerateDevices = originalEnumerateDevices;
+	}
+	if (originalAudioContext) {
+		window.AudioContext = originalAudioContext;
+	}
+	currentConfig = undefined;
+};
+
 export const installMediaMock = (config: MediaParameters) => {
-	ensureInstalled();
+	patch();
 	currentConfig = config;
 };
 
+/** Tears down the patch entirely, restoring the browser's real
+ * `getUserMedia`/`enumerateDevices`/`AudioContext`. Call this on every story
+ * mount/unmount, not just the mocked ones — otherwise a story with no
+ * `parameters.media` (a real-microphone story) inherits whatever patch the
+ * previous story left behind. */
 export const resetMediaMock = () => {
-	currentConfig = undefined;
+	unpatch();
 };

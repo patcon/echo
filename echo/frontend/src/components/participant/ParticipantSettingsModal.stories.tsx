@@ -25,7 +25,12 @@ import { ParticipantSettingsModal } from "./ParticipantSettingsModal";
  * other device from the dropdown and pressing Continue — so it does not need
  * its own `parameters.media` config, just a `play` function or a manual
  * click; left manual here rather than automated against a Mantine `Select`,
- * which no other story in this repo drives via `play`. */
+ * which no other story in this repo drives via `play`.
+ *
+ * `RealMic` below is the one exception: it sets no `parameters.media` at all,
+ * so `withMediaMocks` (`.storybook/preview.tsx`) leaves the browser's real
+ * `getUserMedia`/`enumerateDevices`/`AudioContext` in place, and the story
+ * behaves exactly like the real app — including a real permission prompt. */
 const meta = {
 	component: ParticipantSettingsModal,
 	title: "Participant/ParticipantSettingsModal",
@@ -47,7 +52,7 @@ const Harness = () => {
 	);
 };
 
-const harnessStory = (media: MediaParameters): Story => ({
+const harnessStory = (media?: MediaParameters): Story => ({
 	args: {
 		onClose: fn(),
 		opened: true,
@@ -57,18 +62,16 @@ const harnessStory = (media: MediaParameters): Story => ({
 		onMicTestSuccess: { table: { disable: true } },
 		opened: { table: { disable: true } },
 	},
-	parameters: { media },
+	parameters: media ? { media } : {},
 	render: () => <Harness />,
 });
 
-/** The happy path: permission already granted, a device selected, and a
- * volume comfortably above `SILENCE_THRESHOLD` (`MicrophoneTest.tsx:38`), so
- * `isMicTestSuccessful` is true from the first analyser tick. Green "Everything
- * looks good" alert, Continue enabled (`:380-389`, `:410`). */
-export const Playground: Story = harnessStory({
-	level: 140,
-	permission: "granted",
-});
+/** No `parameters.media` — the real browser APIs are live, so this behaves
+ * exactly like the real app: a real permission prompt, your actual
+ * microphones in the dropdown, and a real analyser reading whatever your mic
+ * picks up. The one story here you cannot fully predict from reading the
+ * code. */
+export const RealMic: Story = harnessStory();
 
 /** The initial `getUserMedia({ audio: true })` call (`:67-69`) never
  * resolves, so `isLoadingDevices` stays true forever: disabled `Select`, blue
@@ -91,11 +94,23 @@ export const GrantedNoDevices: Story = harnessStory({
 	permission: "granted",
 });
 
-/** Permission granted, a device selected, but the analyser reports a level at
- * `SILENCE_THRESHOLD` or below. Yellow "We cannot hear you…" alert
- * (`:390-400`), progress bar yellow, Continue disabled. */
+/** Permission granted, a device selected, no signal at all: `level: 128` is
+ * the analyser's midpoint, so `avg` (`MicrophoneTest.tsx:135-136`) comes out
+ * to exactly `0`. Yellow "We cannot hear you…" alert (`:390-400`), progress
+ * bar yellow, Continue disabled. */
 export const Silent: Story = harnessStory({
 	level: 128,
+	permission: "granted",
+});
+
+/** The near-miss version of `Silent`: `level: 129` puts `avg` at exactly `2`,
+ * matching `SILENCE_THRESHOLD` (`:38`) rather than sitting comfortably under
+ * it. The check is `avg > SILENCE_THRESHOLD` (`:152`), so equal still fails —
+ * someone speaking is almost, but not quite, loud enough. Same yellow alert
+ * as `Silent`, reached by the smallest level that still counts as "too
+ * quiet" with an integer analyser byte. */
+export const TooLow: Story = harnessStory({
+	level: 129,
 	permission: "granted",
 });
 
