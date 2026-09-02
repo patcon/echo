@@ -27,7 +27,28 @@ One or two stories per loop covers most of the domain.
   by clicking around.
 - `participant/UserChunkMessage.tsx`, `SystemMessage.tsx`, `SpikeMessage.tsx` —
   small, prop-shaped, define the participant's mental model of "my conversation
-  is being heard".
+  is being heard". Correction after looking properly: only two of the three are
+  prop-shaped. `SystemMessage` (39) and `SpikeMessage` (46) are pure props, but
+  `UserChunkMessage` (117) holds a delete `useMutation` (`:23`), so it is the
+  MSW tier and does not belong in the same file as the other two.
+- `participant/StopRecordingConfirmationModal.tsx` (182) — **done**, and the
+  right first pick for this loop. See **The capture loop starts at the exit**
+  below.
+
+The recording interface *proper*, `participant/ParticipantConversationAudio.tsx`
+(1108), is a skip-the-giants case: `useParams`, five queries, a mutation,
+`useChunkedAudioRecorder`, two wake locks, no injection seam. Story its leaves.
+`ParticipantConversationAudioContent.tsx` (191) is small but no better — it is
+all hooks and an outlet context.
+
+Ordering note for the rest of the loop. `MicrophoneTest` is the one with the
+most to teach and it needs a **fifth seam**: it drives
+`navigator.mediaDevices.getUserMedia` / `enumerateDevices`, an `AudioContext`
+analyser loop, and `js-cookie`. None of args, `parameters.query`, `play` or MSW
+touch any of that; it wants a `parameters.media` decorator stubbing
+`navigator.mediaDevices`. Worth building deliberately rather than as a side
+effect of one story. `ParticipantOnboardingCards` is blocked behind the same
+seam because it renders `MicrophoneTest` inline (`:104-113`).
 
 ### 2. Monitor — the host watching a live room
 
@@ -243,8 +264,12 @@ Added here:
 - `chat/ChatModeBanner.stories.tsx`
 - `goal/GoalSuggestionCard.stories.tsx`
 - `chat/CustomVerificationTopicSuggestionCard.stories.tsx`
+- `participant/StopRecordingConfirmationModal.stories.tsx`
 
-The last two are the first stories to use `parameters.query`.
+`GoalSuggestionCard` and `CustomVerificationTopicSuggestionCard` are the first
+stories to use `parameters.query`. `StopRecordingConfirmationModal` is the first
+outside the chat/host half of the product, and the first with no server state at
+all — args plus one `play`, no seeding and no handlers.
 
 ## What the card family reads like once three of them are storied
 
@@ -429,3 +454,275 @@ Setup notes, all of which cost time:
 - The default setup warns on unhandled requests it does not recognise as
   Storybook assets. Useful: a typo'd handler path shows up in the console rather
   than failing silently.
+
+## The capture loop starts at the exit
+
+First story outside the host-facing half of the product, and the pick was made
+on tractability rather than importance: `ParticipantConversationAudio.tsx` holds
+the recording experience, and nothing in it can be mounted. Its most
+consequential leaf is fully prop-driven, so that is where the loop starts —
+`StopRecordingConfirmationModal`, ten props, no queries, no mutations, one piece
+of local state.
+
+Cheapest story on the branch so far. No `parameters.query`, no MSW, no new
+seams; six stories on args plus two `play` clicks. Worth recording as a
+data point against the assumption that the participant subtree needs
+infrastructure before anything there can be storied. One component in it
+needed none.
+
+### Portaled components query `document.body`, not `canvasElement`
+
+New mechanic, and the first thing that would have cost time. Mantine renders
+`Modal` into a portal at the document root, so the modal is not inside
+Storybook's `canvasElement`. Every existing `play` on this branch uses
+`within(canvasElement)`, which in this file finds nothing and fails with a
+timeout that does not explain itself. `within(document.body)` is the fix.
+
+Applies to `PermissionErrorModal`, `ParticipantSettingsModal`, `ArtefactModal`
+and anything built on `ConfirmModal` / `InputModal`, so it is worth knowing
+before the next modal story rather than after it.
+
+### What the states turned out to be
+
+Three of the five are sub-second windows in the real app, which is the argument
+for the story: uploading, stopping, and the verification prompt are all
+reachable only by finishing a real recording at exactly the right instant.
+
+**Two reasons the same button is dead, and they look alike.**
+`isFinishDisabled` is `isStopping || isUploading` (`:40`), but `loading` is
+wired to `isStopping` alone (`:150`), and the uploading case gets its own
+spinner in a copy row above the buttons instead (`:126-135`). So the two states
+do read differently — the difference is *where* the spinner sits, which is a lot
+to ask of a glance on a phone.
+
+**Dismissing the modal resumes recording, and nothing says so.** The one that
+would not have surfaced from reading the component alone, because it needs the
+call site. `handleModalClose` (backdrop, Escape, X) calls `handleClose`, which
+calls `handleResume()` before `close()` (`:43-47`, `:57-61`) — the same handler
+the Resume button runs (`:139`). At the call site that restarts the recorder
+from the captured timestamp and re-obtains the wake lock
+(`ParticipantConversationAudio.tsx:539-549`). There is no neutral exit: every
+way out of this modal is a decision, and one of them is unlabelled.
+
+Safe by construction rather than by design, and worth noting *why* it is safe:
+the single moment resuming would be wrong is `isStopping`, which is also the
+only state where dismissal is blocked (`:67-68`, `:58`). The invariant holds; it
+is not written down.
+
+**An 18px icon is the only warning that Finish will not finish.** With
+`showVerifyOnFinish` true, `handleFinishClick` sets local state and returns
+without calling `handleConfirmFinish` (`:49-53`). The button keeps its word, its
+position and its emphasis; the only change is a check rosette in `rightSection`
+(`:154-158`). This is a legitimate case of the "story both sides only when the
+identity is the finding" exception from the lesson below — two stories that
+render near-identically, where that is the point.
+
+**The verify prompt removes the exits the participant just had.** The second
+screen replaces the modal body rather than extending it (`:87-123`): Resume and
+switch-to-text are gone, and there is no back. A participant who pressed Finish,
+got asked a question, and wants out has only the unlabelled dismiss — which
+resumes recording. Ends up in the odd position of asking to finish and being
+returned to recording.
+
+Also worth pairing with the call site, because the copy and the behaviour
+disagree: Skip closes and finishes
+(`ParticipantConversationAudio.tsx:528-531`), but Verify closes, **resumes
+recording**, and navigates (`:551-555`). So Verify is "keep recording while you
+verify", not "verify before finishing" as the modal's own text says
+(`:90-93`).
+
+### One latent defect, checked before naming
+
+`showVerifyOnFinish`, `handleVerify` and `handleSkipVerification` are
+independently optional (`:23-25`), so the type permits switching the branch on
+without the handlers it needs. Both buttons call through optional chaining
+(`:100`, `:111`), so each clears `showVerifyPrompt` and does nothing — the modal
+answers the question by dropping back to the screen that asks it. A loop whose
+only exit is the dismiss-resumes one.
+
+Not reachable: the component has exactly one construction site
+(`ParticipantConversationAudio.tsx:808-819`) and it passes all three props every
+time. Checked before writing the story name, per the lesson recorded above —
+`(latent defect)`, not `(defect)`.
+
+Same shape as the `GoalSuggestionCard` finding, which is now twice, so it is
+worth naming as a pattern rather than two incidents: **a component is correct
+only because its single call site is complete, and the type does not carry
+that.** Both fixes are in the type or an early return rather than in the render.
+Here a discriminated union making the two handlers required when
+`showVerifyOnFinish` is true would let the compiler hold the invariant.
+
+### Viewport, considered and not needed
+
+Everything in this loop ships on a phone held by someone standing in a room, and
+`preview.tsx` has no viewport handling at all, so a desktop-width story could
+misrepresent the real thing. Not here: the modal pins `size="sm"` (`:81`), a
+fixed width rather than a proportion, so the canvas width does not change what
+it looks like. The question comes back for `MicrophoneTest` and
+`ParticipantOnboardingCards`, which are full-screen and fluid.
+
+### Unverified
+
+`node_modules` was empty on this checkout, so none of these stories have been
+rendered and nothing was formatted or typechecked. Two specific claims to
+confirm on first run:
+
+- The switch-to-text `Anchor component="button"` takes `disabled` (`:170`).
+  Mantine spreads unknown props onto the element, so this should reach the DOM
+  as `<button disabled>` and genuinely not fire — but `Anchor` has no disabled
+  styling, so it stays a blue link that looks clickable. Click it in `Stopping`;
+  if `handleSwitchToText` appears in the actions panel, the lockdown has a hole.
+- `within(document.body)` reaches the portaled modal in `play` as expected.
+
+### Two tiers per file: pinned stories plus one `Playground`
+
+Came out of wanting the modal's handlers actually wired — clicking Resume, the
+X or the backdrop should toggle `opened`, and Finish should run a delay and
+close. Converting the six pinned stories to do that would have wrecked them:
+every exit from this modal leads to `opened: false`, which renders nothing, so
+one stray click leaves a blank canvas with no reset but a page reload. A story
+you can click your way out of does not hold a state still, which is the whole
+job of the pinned ones.
+
+So the file has two tiers, and they are for different readers:
+
+- **One story named `Playground`** is the sandbox. A stateful `render` wrapper
+  owns the parent's state machine so every affordance does something real.
+- **Pinned stories** are the documentation. One state each, `args`-driven,
+  handlers are `fn()` spies, nothing self-driving. Safe to link someone to.
+
+`Playground` goes **first in the file**, since Storybook orders the sidebar by
+export order and the flow is what someone wants on arrival — the pinned states
+read better once you have felt the sequence they are cut out of.
+
+Worth generalising to the rest of the branch: any component whose state is
+owned by a parent gets this shape. Do not retrofit interactivity into a story
+that exists to pin one state; add a `Playground` above it.
+
+Five things learned building this one:
+
+- **A harness needs a surface behind the component.** Without one, Resume,
+  dismiss, Finish and Switch-to-text all look identical — a blank canvas — and
+  the story reads as broken. The stand-in panel here shows the *host's*
+  `StatePill` label for whatever the participant just did, reusing the app's own
+  colour vocabulary (`conversation/StatePill.tsx:16-51`) rather than inventing
+  one. Unplanned benefit: it is the only place on the branch where both loops
+  are visible at once, since the capture stories and the monitor stories
+  otherwise never meet.
+- **Put every Playground control in one place, and label the kinds.** This one
+  took two passes and the first answer was wrong in an instructive way.
+
+  Pass one: the "Simulate failure on finish" toggle started out as an arg, and
+  needed a cast to smuggle a non-prop through `StoryObj<typeof meta>`. Moving it
+  into the rendered panel dropped the cast and stopped it implying the
+  component has a failure mode of its own — the failure is the parent's
+  (`ParticipantConversationAudio.tsx:521-525`). From that I generalised
+  "harness-only flags in the harness, real props in `args`", which sounds
+  principled.
+
+  Pass two showed why it is not. `showVerifyOnFinish` is a real prop, so by that
+  rule it stayed in the controls panel — which meant exercising one flow needed
+  clicks in two different control surfaces, the canvas and the panel. Both
+  switches now sit together in the canvas, each with a Mantine `description`
+  saying which kind it is ("Real prop" / "Harness only"). The prop-versus-fiction
+  distinction was worth keeping; encoding it in *location* was not, because
+  location is also what determines how many places you have to click.
+
+  So: one control surface, and carry the taxonomy in the labels. Corollary
+  unchanged — every arg the wrapper owns gets `table: { disable: true }`, since
+  a visible `opened: true` control that does nothing is worse than no control.
+  For this story that now means the Storybook controls panel is empty, which is
+  the honest rendering of a story you click rather than dial.
+- **Invented timing gets a named constant, and the constant records what is
+  sourced.** Two of them here, and they are not equally grounded.
+  `SIMULATED_FINISH_MS = 3000` sits inside a real envelope: a 100ms floor
+  (`:490`), a 30s upload-race ceiling (`:494-496`), plus a network call
+  (`:514`). `SIMULATED_UPLOAD_MS = 1500` has no bound in the code at all — what
+  is sourced is only that the upload exists and what it carries (stopping the
+  recorder triggers the final chunk immediately, `:473`, and a chunk is 30
+  seconds of audio at the recorder's default timeslice,
+  `hooks/useChunkedAudioRecorder.ts:63`). Saying which is which in the constant's
+  own doc comment is the difference between a simulation and a story that
+  quietly asserts timing the app does not guarantee.
+- **Simulate the states the component is *given*, not just the ones it owns.**
+  `isUploading` began as a control, which was wrong twice over: it made an
+  ambient condition look like a dial, and it missed that pausing *causes* the
+  upload (`ParticipantConversationAudio.tsx:473`, and `isUploading` is that
+  mutation's `isPending` at `:812`). Now the harness owns it and the pause
+  starts it, so pressing "Simulate pause" gives you a modal whose Finish button
+  is dead for a moment and then comes alive. Most useful thing in the story,
+  and it was not designed — it fell out of making the simulation honest about
+  causation. The pinned `Uploading` story describes the same moment but cannot
+  show it resolving, which is the tier split working as intended.
+- **Start the harness one step before the component.** First version opened
+  with the modal already up, which quietly asserted that this modal is a screen
+  you land on. It is not — it is something a pause produces (`:470-479`), and
+  opening straight into it skips the upload window that the pause causes. The
+  harness now starts on the recording surface with the modal closed and a
+  "Simulate pause" button as the way in. Costs one click, buys the whole
+  sequence. Generalises: a component that only ever appears as a *consequence*
+  should be reached in its Playground, not mounted.
+
+### What the Playground turned up that the pinned stories could not
+
+The harness earned its place immediately, which was not the expected outcome —
+it was built for feel, not for findings.
+
+**Skipping verification loses the spinner that finishing directly has.**
+`handleSkipVerification` calls `close()` *before* awaiting the finish
+(`ParticipantConversationAudio.tsx:528-531`), so `isStopping` goes true on an
+already-closed modal and the Finish button's `loading`
+(`StopRecordingConfirmationModal.tsx:150`) has nothing to render into. Press
+Finish directly and the modal spins for the duration; press Finish then Skip and
+there is no feedback at all until the route changes. Same conversation, same
+work, two different answers to "is anything happening".
+
+Live, not latent — both paths are reachable whenever verify-on-finish is armed.
+Cheap to fix (close after the await, or leave the modal up in its stopping
+state), but it is a behaviour change, so not on this branch.
+
+Why the pinned stories missed it: each one holds `isStopping` and `opened`
+independently, so the pairing that matters here — `isStopping` true *while*
+`opened` is false — is not a state either of them can express. It only exists as
+a transition. That is the argument for the second tier in one line: **pinned
+stories cover states, a Playground covers the transitions between them.**
+
+### `showVerifyOnFinish` is not an agentic feature, but the agentic chat can turn it on
+
+Asked directly, and the answer has three parts because the naming invites two
+different confusions.
+
+**It is a host setting.** `is_verify_enabled` and `is_verify_on_finish_enabled`
+are plain Directus project booleans, set by a host with two switches in portal
+settings (`project/ProjectPortalEditor.tsx:1007`, `:1232`), and the participant
+modal derives `showVerifyOnFinish` from them plus two runtime conditions
+(`ParticipantConversationAudio.tsx:463-467`). Nothing agentic gates it.
+
+**Verify is still LLM work.** The backend generates an artefact from the
+conversation, the participant reads it aloud, discusses it, hits revise to
+regenerate against that discussion, and approves
+(`participant/verify/hooks/index.ts:29-60`,
+`participant/verify/VerifyInstructions.tsx:14-58`). So "not agentic" is not the
+same as "not AI" — this is a generate-and-revise loop pointed at the
+participant rather than the host.
+
+**The agentic chat reaches into it from three directions**, which is the part
+worth recording because it crosses two of the four loops. All three of
+`is_verify_enabled`, `is_verify_on_finish_enabled` and
+`selected_verification_key_list` are in `ProjectUpdateSuggestionCard`'s field
+map (`chat/ProjectUpdateSuggestionCard.tsx:65-66`, `:69`), and that card is
+constructed only by `AgenticChatPanel.tsx:1895`. The already-storied
+`CustomVerificationTopicSuggestionCard` is the fourth, proposing a topic for
+the artefact to be generated about (`AgenticChatPanel.tsx:1923`). So the
+assistant can propose switching on a detour that only participants will ever
+see, and propose what they will be asked to verify.
+
+That is the clearest instance so far of the thing the suggestion-card stories
+kept circling: the assistant does not just answer, it proposes mutations to the
+project — and here the mutation lands in a different loop from the one the host
+is looking at. Nobody reading either loop's stories alone would see it.
+
+**Do not confuse "Agentation" with "agentic".** Despite the name, `Agentation`
+is a dev-only overlay resolving DOM elements back to source paths
+(`config.ts:194-197`, `vite.config.ts:128-143`) and has nothing to do with the
+agentic chat or with verify. It cost a wrong grep before I noticed.
