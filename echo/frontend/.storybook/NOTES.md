@@ -531,26 +531,29 @@ recording**, and navigates (`:551-555`). So Verify is "keep recording while you
 verify", not "verify before finishing" as the modal's own text says
 (`:90-93`).
 
-### One latent defect, checked before naming
+### One latent defect, noted but not storied
 
 `showVerifyOnFinish`, `handleVerify` and `handleSkipVerification` are
-independently optional (`:23-25`), so the type permits switching the branch on
-without the handlers it needs. Both buttons call through optional chaining
-(`:100`, `:111`), so each clears `showVerifyPrompt` and does nothing — the modal
-answers the question by dropping back to the screen that asks it. A loop whose
-only exit is the dismiss-resumes one.
+independently optional (`:23-25`), so the type permits arming the branch without
+the handlers it needs, and both buttons call through optional chaining (`:100`,
+`:111`) — the modal would answer the question by dropping back to the screen
+that asks it. Not reachable: one construction site
+(`ParticipantConversationAudio.tsx:808-819`), passing all three every time. A
+discriminated union would let the compiler hold that invariant.
 
-Not reachable: the component has exactly one construction site
-(`ParticipantConversationAudio.tsx:808-819`) and it passes all three props every
-time. Checked before writing the story name, per the lesson recorded above —
-`(latent defect)`, not `(defect)`.
+Same shape as the `GoalSuggestionCard` finding, so it is worth naming as a
+pattern rather than two incidents: **a component is correct only because its
+single call site is complete, and the type does not carry that.**
 
-Same shape as the `GoalSuggestionCard` finding, which is now twice, so it is
-worth naming as a pattern rather than two incidents: **a component is correct
-only because its single call site is complete, and the type does not carry
-that.** Both fixes are in the type or an early return rather than in the render.
-Here a discriminated union making the two handlers required when
-`showVerifyOnFinish` is true would let the compiler hold the invariant.
+I gave it a story with `(latent defect)` in the name and it did not survive
+review — cut as not worth a slot. Recorded because the judgement is the
+transferable part: unreachable-by-construction is a real finding, but a
+*sidebar* is a scarce, ordered surface, and a state no participant can reach
+does not earn a row next to five that they can. The place for it is a note like
+this one. That is a narrowing of the "mark defects in the story name" convention
+above, which still holds for `GoalSuggestionCard` — the difference is that
+those two empty-suggestion stories also demonstrate a live inconsistency, so
+they pay for their rows twice.
 
 ### Viewport, considered and not needed
 
@@ -570,7 +573,8 @@ confirm on first run:
 - The switch-to-text `Anchor component="button"` takes `disabled` (`:170`).
   Mantine spreads unknown props onto the element, so this should reach the DOM
   as `<button disabled>` and genuinely not fire — but `Anchor` has no disabled
-  styling, so it stays a blue link that looks clickable. Click it in `Stopping`;
+  styling, so it stays a blue link that looks clickable. Click it in
+  `Paused (pending finish)`;
   if `handleSwitchToText` appears in the actions panel, the lockdown has a hole.
 - `within(document.body)` reaches the portaled modal in `play` as expected.
 
@@ -652,8 +656,8 @@ Five things learned building this one:
   starts it, so pressing "Simulate pause" gives you a modal whose Finish button
   is dead for a moment and then comes alive. Most useful thing in the story,
   and it was not designed — it fell out of making the simulation honest about
-  causation. The pinned `Uploading` story describes the same moment but cannot
-  show it resolving, which is the tier split working as intended.
+  causation. The pinned `Paused (pending upload)` describes the same moment but
+  cannot show it resolving, which is the tier split working as intended.
 - **Start the harness one step before the component.** First version opened
   with the modal already up, which quietly asserted that this modal is a screen
   you land on. It is not — it is something a pause produces (`:470-479`), and
@@ -726,3 +730,40 @@ is looking at. Nobody reading either loop's stories alone would see it.
 is a dev-only overlay resolving DOM elements back to source paths
 (`config.ts:194-197`, `vite.config.ts:128-143`) and has nothing to do with the
 agentic chat or with verify. It cost a wrong grep before I noticed.
+
+### Name stories for the screen, not for the finding
+
+My names for this file were too verbose and, worse, misleading about the shape
+of the component. I had `Uploading — Finish dead, every other exit live`,
+`Stopping — the one deliberate trap`, `Verify on finish — an icon is the only
+warning`. Each one tried to carry its finding in the title.
+
+Renamed to:
+
+- `Paused`
+- `Paused (pending upload)`
+- `Paused (pending finish)`
+- `Paused (with verify)`
+- `Verify prompt`
+
+Two things this gets right that my version did not. Four of the five are **the
+same screen** under different conditions, and the shared `Paused` stem says so
+at a glance, where four unrelated titles implied four different screens. And it
+puts the one genuinely different screen, `Verify prompt`, in visible contrast —
+which is the actual structure of the component, one pause screen plus one
+replacement.
+
+It also does the `Paused (with verify)` story's job better than its old name
+did. That story exists *because* it renders almost identically to `Paused`; a
+sidebar reading `Paused` / `Paused (with verify)` sets up that near-identity,
+while `Verify on finish — an icon is the only warning` spent the title
+pre-empting the finding and hid the relationship.
+
+So the general rule, which supersedes the "a story name has to name what is
+true here and not next door" note above rather than contradicting it: **the name
+disambiguates the state; the doc comment carries the finding.** Names still have
+to distinguish neighbours, but a parenthetical condition on a shared stem does
+that in three words, and it is the doc comment a reader is in by the time they
+need to know why the state matters. The earlier note came from two stories named
+after an ambient condition, which is a different failure — that name described
+nothing, this one described too much.

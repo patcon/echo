@@ -390,9 +390,9 @@ const PlaygroundHarness = () => {
  * Also worth doing once: press Finish and try to leave while it spins. Backdrop,
  * Escape and the X are all inert for those three seconds
  * (`StopRecordingConfirmationModal.tsx:58`, `:67-68`) — the deliberate trap
- * from the `Stopping` story, except here you can feel how long it lasts. And
- * pause, then press Resume while the upload badge is still showing: the upload
- * carries on, because the real one does not cancel either.
+ * from `Paused (pending finish)`, except here you can feel how long it lasts.
+ * And pause, then press Resume while the upload badge is still showing: the
+ * upload carries on, because the real one does not cancel either.
  *
  * Everything is clicked in the canvas; the Storybook controls panel is empty
  * for this story, and every arg is hidden via `argTypes`. That is a revision of
@@ -499,12 +499,13 @@ export const Paused: Story = {
  * `isStopping || isUploading` (`:40`), so Finish is dead — you cannot end a
  * conversation while its audio is still uploading.
  *
- * Compare with `Stopping` below: that story disables the same button, and the
- * only thing distinguishing them is that Finish there also spins, because
- * `loading` is wired to `isStopping` alone (`:150`). This one gets its own
- * spinner instead, in a row of copy above the buttons (`:126-135`), so the two
- * states do read differently — but the difference is *where* the spinner is,
- * which is a lot to ask of a glance.
+ * Compare with `Paused (pending finish)` below. It disables the same button,
+ * and the only thing distinguishing them is that Finish there also spins,
+ * because `loading` is wired to `isStopping` alone (`:150`). This one gets its
+ * own spinner instead, in a row of copy above the buttons (`:126-135`), so the
+ * two states do read differently — but the difference is *where* the spinner
+ * is, which is a lot to ask of a glance. The names say which is which; the
+ * screens barely do.
  *
  * The asymmetry worth noticing is what stays live. Resume is disabled by
  * `isStopping` only (`:140`), as is the switch-to-text link (`:170`), and
@@ -522,14 +523,14 @@ export const Paused: Story = {
  * This is the opening frame of every pause, not an edge case: stopping the
  * recorder is what starts the upload
  * (`ParticipantConversationAudio.tsx:473`). The Playground shows it resolving. */
-export const Uploading: Story = {
+export const PausedPendingUpload: Story = {
 	args: {
 		...handlers,
 		isStopping: false,
 		isUploading: true,
 		opened: true,
 	},
-	name: "Uploading — Finish dead, every other exit live",
+	name: "Paused (pending upload)",
 };
 
 /** `handleConfirmFinish` has been called and is awaiting pending uploads
@@ -559,13 +560,13 @@ export const Uploading: Story = {
  * `node_modules` is empty on this checkout, so I could not read Mantine's
  * source. Worth confirming by clicking it in this story; if `handleSwitchToText`
  * shows up in the actions panel, the lockdown has a hole. */
-export const Stopping: Story = {
+export const PausedPendingFinish: Story = {
 	args: {
 		...handlers,
 		isStopping: true,
 		opened: true,
 	},
-	name: "Stopping — the one deliberate trap",
+	name: "Paused (pending finish)",
 };
 
 // ---------------------------------------------------------------------------
@@ -615,14 +616,14 @@ export const Stopping: Story = {
  * (`config.ts:194-197`).
  *
  * Click Finish to reach the next story's state. */
-export const VerifyOnFinishOffered: Story = {
+export const PausedWithVerify: Story = {
 	args: {
 		...handlers,
 		isStopping: false,
 		opened: true,
 		showVerifyOnFinish: true,
 	},
-	name: "Verify on finish — an icon is the only warning",
+	name: "Paused (with verify)",
 };
 
 /** The second screen, and the only state in this file with no seam of its own.
@@ -663,60 +664,10 @@ export const VerifyPrompt: Story = {
 		opened: true,
 		showVerifyOnFinish: true,
 	},
-	name: "Verify prompt — reached by clicking Finish",
+	name: "Verify prompt",
 	play: async () => {
 		// document.body, not canvasElement: Mantine portals the modal out of the
 		// story root. See the note in the meta above.
-		const modal = within(document.body);
-		await userEvent.click(
-			await modal.findByTestId("portal-audio-stop-finish-button"),
-		);
-	},
-};
-
-// ---------------------------------------------------------------------------
-// Degenerate props
-// ---------------------------------------------------------------------------
-
-/** `showVerifyOnFinish` is true while `handleVerify` and
- * `handleSkipVerification` are both absent. The props are independently
- * optional (`:23-25`): nothing in the type requires the two handlers when the
- * branch that needs them is switched on.
- *
- * The result is a dead end. Both buttons call through optional chaining
- * (`:100`, `:111`), so each clears `showVerifyPrompt` and then does nothing.
- * The modal drops back to the pause screen, where Finish leads to the same
- * question again. Neither Skip nor Verify reports anything, so a participant
- * gets a modal that answers a question by re-asking it, with the unlabelled
- * dismiss-resumes exit as the only way out of the loop.
- *
- * **Latent, not live.** The component is constructed in exactly one place
- * (`ParticipantConversationAudio.tsx:808-819`), which passes all three props
- * together every time, so no participant can reach this. Checked before naming
- * it, per the lesson `GoalSuggestionCard.stories.tsx` recorded — the
- * constructor is as much a part of the behaviour as the component.
- *
- * What it costs is robustness. The component is safe only because its single
- * call site happens to be complete, and the type does not say that it has to
- * be. A second construction site reintroduces the loop with no warning, and it
- * would be quiet: no error, no toast, just a button that appears to work.
- *
- * The fix is in the type rather than the render — a discriminated union making
- * the handlers required when `showVerifyOnFinish` is true would let the
- * compiler carry the invariant instead of a convention. Not changed here;
- * stories branch, app behaviour. */
-export const VerifyOnFinishWithoutHandlers: Story = {
-	args: {
-		close: handlers.close,
-		handleConfirmFinish: handlers.handleConfirmFinish,
-		handleResume: handlers.handleResume,
-		handleSwitchToText: handlers.handleSwitchToText,
-		isStopping: false,
-		opened: true,
-		showVerifyOnFinish: true,
-	},
-	name: "Verify on finish — no handlers, both buttons dead (latent defect)",
-	play: async () => {
 		const modal = within(document.body);
 		await userEvent.click(
 			await modal.findByTestId("portal-audio-stop-finish-button"),
