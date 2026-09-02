@@ -108,7 +108,20 @@ export const Silent: Story = harnessStory({
  * it. The check is `avg > SILENCE_THRESHOLD` (`:152`), so equal still fails —
  * someone speaking is almost, but not quite, loud enough. Same yellow alert
  * as `Silent`, reached by the smallest level that still counts as "too
- * quiet" with an integer analyser byte. */
+ * quiet" with an integer analyser byte.
+ *
+ * Found by building this story, and it is real: the progress bar's color and
+ * the alert disagree exactly at this boundary. `level` (component state) is
+ * set to `avg` on the throttled update (`:143-149`), and the bar's color is
+ * `level < SILENCE_THRESHOLD ? "yellow" : "blue"` (`:339`) — a strict
+ * less-than, against the success check's strict greater-than (`:152`). At
+ * `avg === SILENCE_THRESHOLD` both comparisons are false, so the bar reads
+ * blue (a "good signal" color, per `Playground`/`RealMic`) while the alert
+ * still says "we cannot hear you". One inclusive threshold and one exclusive
+ * one, both named `SILENCE_THRESHOLD`, disagreeing at the one value where it
+ * matters. A real microphone's level fluctuates continuously and essentially
+ * never lands on that exact integer, which is why `RealMic` doesn't show it —
+ * this story hits it on purpose by holding the level perfectly constant. */
 export const TooLow: Story = harnessStory({
 	level: 129,
 	permission: "granted",
