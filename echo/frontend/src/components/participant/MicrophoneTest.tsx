@@ -336,7 +336,7 @@ const MicrophoneTest: React.FC<MicrophoneTestProps> = ({
 					</Text>
 					<Progress
 						value={displayLevel}
-						color={level < SILENCE_THRESHOLD ? "yellow" : "blue"}
+						color={level <= SILENCE_THRESHOLD ? "yellow" : "blue"}
 						className="-mt-2 mb-4 w-full"
 						{...testId("portal-settings-mic-level-progress")}
 					/>
