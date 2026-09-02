@@ -94,36 +94,42 @@ export const GrantedNoDevices: Story = harnessStory({
 	permission: "granted",
 });
 
-/** Permission granted, a device selected, no signal at all: `level: 128` is
- * the analyser's midpoint, so `avg` (`MicrophoneTest.tsx:135-136`) comes out
- * to exactly `0`. Yellow "We cannot hear you…" alert (`:390-400`), progress
- * bar yellow, Continue disabled. */
+/** Permission granted, a device selected, no signal at all: `avg: 0`
+ * (`MicrophoneTest.tsx:136`). Yellow "We cannot hear you…" alert
+ * (`:390-400`), progress bar yellow, Continue disabled. */
 export const Silent: Story = harnessStory({
-	level: 128,
+	avg: 0,
 	permission: "granted",
 });
 
-/** The near-miss version of `Silent`: `level: 129` puts `avg` at exactly `2`,
- * matching `SILENCE_THRESHOLD` (`:38`) rather than sitting comfortably under
- * it. The check is `avg > SILENCE_THRESHOLD` (`:152`), so equal still fails —
- * someone speaking is almost, but not quite, loud enough. Same yellow alert
- * as `Silent`, reached by the smallest level that still counts as "too
- * quiet" with an integer analyser byte.
+/** The near-miss version of `Silent`: `avg: 2` matches `SILENCE_THRESHOLD`
+ * (`:38`) exactly rather than sitting comfortably under it. The success check
+ * is `avg > SILENCE_THRESHOLD` (`:152`), so equal still fails — someone
+ * speaking is almost, but not quite, loud enough. Yellow alert, same as
+ * `Silent`, and — as of `level <= SILENCE_THRESHOLD` at `:339` — a yellow
+ * progress bar too.
  *
- * Found by building this story, and it is real: the progress bar's color and
- * the alert disagree exactly at this boundary. `level` (component state) is
- * set to `avg` on the throttled update (`:143-149`), and the bar's color is
- * `level < SILENCE_THRESHOLD ? "yellow" : "blue"` (`:339`) — a strict
- * less-than, against the success check's strict greater-than (`:152`). At
- * `avg === SILENCE_THRESHOLD` both comparisons are false, so the bar reads
- * blue (a "good signal" color, per `Playground`/`RealMic`) while the alert
- * still says "we cannot hear you". One inclusive threshold and one exclusive
- * one, both named `SILENCE_THRESHOLD`, disagreeing at the one value where it
- * matters. A real microphone's level fluctuates continuously and essentially
- * never lands on that exact integer, which is why `RealMic` doesn't show it —
- * this story hits it on purpose by holding the level perfectly constant. */
+ * That bar comparison used to be a strict `<`, which disagreed with the
+ * success check's strict `>` at this exact boundary: `MicrophoneTest`'s own
+ * `level` state is set to `avg` (`:143-149`), so `avg === SILENCE_THRESHOLD`
+ * made `level < SILENCE_THRESHOLD` false (bar reads blue, a "good signal"
+ * color) while `avg > SILENCE_THRESHOLD` was also false (alert still says
+ * "we cannot hear you") — this story is what surfaced it. Fixed now by
+ * making the bar's threshold inclusive to match, so this story currently
+ * shows a fully consistent "too quiet" state rather than the disagreement
+ * that found the bug. A real microphone's level fluctuates continuously and
+ * essentially never lands on this exact value; only a perfectly constant
+ * mock does. */
 export const TooLow: Story = harnessStory({
-	level: 129,
+	avg: 2,
+	permission: "granted",
+});
+
+/** Comfortably above `SILENCE_THRESHOLD` (`:38`), so `isMicTestSuccessful` is
+ * true from the first analyser tick. Green "Everything looks good" alert
+ * (`:381-389`), progress bar blue, Continue enabled (`:410`). */
+export const VoiceDetected: Story = harnessStory({
+	avg: 24,
 	permission: "granted",
 });
 
