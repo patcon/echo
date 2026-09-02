@@ -7,11 +7,18 @@ import { ModalsProvider } from "@mantine/modals";
 import type { Decorator, Preview } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { mswLoader } from "msw-storybook-addon/csf3";
-import { type PropsWithChildren, useMemo, useState } from "react";
+import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { Toaster } from "@/components/common/Toaster";
 import { I18nProvider } from "@/components/layout/I18nProvider";
 import { theme } from "@/theme";
+import {
+	installMediaMock,
+	type MediaParameters,
+	resetMediaMock,
+} from "./mocks/media";
+
+export type { MediaParameters };
 
 // Most components read :language / :workspaceId / :projectId off the route
 // (useLanguage, useI18nNavigate, useParams), so a story with no router throws.
@@ -156,8 +163,27 @@ const withAppProviders: Decorator = (Story, context) => {
 //
 // The worker file is served from `public/` via `staticDirs` in main.ts.
 
+// `MicrophoneTest` reads `navigator.mediaDevices`/`AudioContext` directly with
+// no prop seam. `parameters.media` (see `.storybook/mocks/media.ts`) patches
+// those globals for the story's lifetime.
+//
+// Installed synchronously in a lazy `useState` initializer, not a
+// `useEffect`: React fires child effects before parent effects on mount, and
+// `MicrophoneTest`'s own device-enumeration effect is a descendant of this
+// decorator, so an effect here would race it. A lazy initializer runs during
+// the render phase, before any effect in the tree fires.
+const withMediaMocks: Decorator = (Story, context) => {
+	const media = context.parameters.media as MediaParameters | undefined;
+	useState(() => {
+		if (media) installMediaMock(media);
+		return true;
+	});
+	useEffect(() => resetMediaMock, []);
+	return <Story />;
+};
+
 const preview: Preview = {
-	decorators: [withAppProviders],
+	decorators: [withAppProviders, withMediaMocks],
 	loaders: [mswLoader()],
 	parameters: {
 		controls: {

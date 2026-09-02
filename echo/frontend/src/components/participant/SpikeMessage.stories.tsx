@@ -48,8 +48,11 @@ export const Loading: Story = {
 /** `message.type` is anything other than `"assistant_reply"` — the component
  * returns `null` (`:43`), matching the `...RendersNothing` naming used for the
  * same shape of state in `ChatHistoryMessage.stories.tsx`. */
-export const RendersNothing: Story = {
+export const NonAssistantReplyRendersNothing: Story = {
 	args: {
-		message: makeMessage({ content_text: "ignored", type: "user_reply" }),
+		message: makeMessage({
+			content_text: "This message doesn't render.",
+			type: "not_assistant_reply",
+		}),
 	},
 };
