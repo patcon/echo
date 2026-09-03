@@ -245,6 +245,7 @@ export const ParticipantInitiateForm = ({ project }: { project: Project }) => {
 								label: tag.text ?? "",
 								value: tag.id,
 							}))}
+						defaultValue={defaultTagIdList}
 						onChange={(value) => {
 							setValue("tagIdList", value);
 						}}
