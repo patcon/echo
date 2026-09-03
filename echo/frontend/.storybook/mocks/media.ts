@@ -30,22 +30,29 @@ export type MediaParameters =
 			 * so this is the one state where the red error alert and the stale yellow
 			 * "we cannot hear you" alert render at the same time. */
 			failingDeviceIds?: string[];
-			/** The value `MicrophoneTest` itself calls `avg` (`:136`) and compares
-			 * against `SILENCE_THRESHOLD` (`2`, `:38`, checked with `avg >`) — not a
-			 * raw analyser byte. Default `0` (silence).
-			 *
-			 * Deliberately not exposed as a raw byte-domain fill value (0-255,
-			 * centered on 128) the way an `AnalyserNode` really works: `avg` is
-			 * `2 * |fillValue - 128|` (`:135-136`), a distance from the midpoint, so
-			 * a *smaller* raw byte can mean a *louder* simulated signal depending
-			 * which side of 128 it lands on (`fillValue: 100` is louder than
-			 * `fillValue: 129`, despite `100 < 129`) — confusing for a story author
-			 * who wants "just under the threshold" or "clearly loud enough". This
-			 * type takes the post-derivation number directly instead, matching what
-			 * the threshold comparisons and every story's doc comment actually talk
-			 * about. */
-			avg?: number;
+			/** Raw analyser byte-domain value the fake `AnalyserNode` reports, 0-255,
+			 * centered on 128 (silence) the way a real `AnalyserNode` is.
+			 * `MicrophoneTest.tsx:135-136` derives `avg = 2 * |level - 128|` from
+			 * this and compares it against `SILENCE_THRESHOLD` (`2`, `:38`) — so it
+			 * is *distance from 128*, not the number itself, that reads as loudness:
+			 * `level: 100` (28 away) is louder than `level: 129` (1 away), despite
+			 * `100 < 129`. Default `128` (silence). */
+			level?: number;
 	  };
+
+/** The analyser byte value a uniform-silence fill reports —
+ * `MicrophoneTest.tsx:132`'s own `centered = sample - 128` midpoint, and this
+ * mock's `level` default. Named so a story can write `level: SILENT_LEVEL`
+ * instead of a bare `128`. */
+export const SILENT_LEVEL = 128;
+
+/** Converts a target `avg` — the value `MicrophoneTest.tsx:135-136` actually
+ * computes and compares against its own `SILENCE_THRESHOLD` (`:38`) — into
+ * the raw `level` byte that reproduces it, inverting `avg = 2 * |level -
+ * 128|`. Lets a story ask for the number that actually matters (e.g.
+ * `levelForAvg(SILENCE_THRESHOLD)` for "exactly at the boundary") instead of
+ * hand-deriving a byte offset and leaving the reasoning out of the code. */
+export const levelForAvg = (avg: number) => SILENT_LEVEL + avg / 2;
 
 const DEFAULT_DEVICES: FakeMicDevice[] = [
 	{ deviceId: "mock-mic-built-in", label: "Built-in Microphone" },
@@ -68,13 +75,11 @@ class FakeAnalyserNode {
 	smoothingTimeConstant = 0.8;
 	frequencyBinCount = 512;
 	getByteTimeDomainData(array: Uint8Array) {
-		const avg =
-			currentConfig?.permission === "granted" ? (currentConfig.avg ?? 0) : 0;
-		// Inverts MicrophoneTest.tsx:135-136's `avg = 2 * |fillValue - 128|`: a
-		// uniform fill at this byte reproduces the requested `avg` exactly, since
-		// every sample contributes the same `centered` term to the RMS.
-		const fillValue = Math.min(255, Math.max(0, Math.round(128 + avg / 2)));
-		array.fill(fillValue);
+		const level =
+			currentConfig?.permission === "granted"
+				? (currentConfig.level ?? 128)
+				: 128;
+		array.fill(level);
 	}
 }
 

@@ -2,8 +2,28 @@ import { Button } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import type { MediaParameters } from "../../../.storybook/preview";
+import {
+	levelForAvg,
+	type MediaParameters,
+	SILENT_LEVEL,
+} from "../../../.storybook/mocks/media";
 import { ParticipantSettingsModal } from "./ParticipantSettingsModal";
+
+/** Mirrors `MicrophoneTest.tsx:38`'s own `SILENCE_THRESHOLD`. Not imported —
+ * that constant lives inside the component function and isn't exported —
+ * duplicated here so `TooLow` and `VoiceDetected` can derive their `level`
+ * from it via `levelForAvg` instead of hand-picking a byte value. */
+const SILENCE_THRESHOLD = 2;
+
+/** `TooLow`'s raw analyser byte, derived rather than hand-picked: the level
+ * that makes `avg` (`MicrophoneTest.tsx:135-136`) land exactly at
+ * `SILENCE_THRESHOLD` — too quiet to pass, by definition, not by guesswork. */
+const LOW_AUDIO_LEVEL_BYTES = levelForAvg(SILENCE_THRESHOLD);
+
+/** `VoiceDetected`'s raw analyser byte: derived from a margin comfortably
+ * above `SILENCE_THRESHOLD` (arbitrary multiplier, just meant to be
+ * unambiguously loud) so `avg` clears the threshold with room to spare. */
+const SUFFICIENT_AUDIO_LEVEL_BYTES = levelForAvg(SILENCE_THRESHOLD * 12);
 
 /** A thin Mantine `Modal` wrapper (`opened`/`onClose` pass straight through,
  * `:18-20`) around `MicrophoneTest` (`:32-38`), which is where all the real
@@ -94,20 +114,21 @@ export const GrantedNoDevices: Story = harnessStory({
 	permission: "granted",
 });
 
-/** Permission granted, a device selected, no signal at all: `avg: 0`
- * (`MicrophoneTest.tsx:136`). Yellow "We cannot hear you…" alert
- * (`:390-400`), progress bar yellow, Continue disabled. */
+/** Permission granted, a device selected, no signal at all: `SILENT_LEVEL` is
+ * the analyser's midpoint, so `avg` (`MicrophoneTest.tsx:135-136`) comes out
+ * to exactly `0`. Yellow "We cannot hear you…" alert (`:390-400`), progress
+ * bar yellow, Continue disabled. */
 export const Silent: Story = harnessStory({
-	avg: 0,
+	level: SILENT_LEVEL,
 	permission: "granted",
 });
 
-/** The near-miss version of `Silent`: `avg: 2` matches `SILENCE_THRESHOLD`
- * (`:38`) exactly rather than sitting comfortably under it. The success check
- * is `avg > SILENCE_THRESHOLD` (`:152`), so equal still fails — someone
- * speaking is almost, but not quite, loud enough. Yellow alert, same as
- * `Silent`, and — as of `level <= SILENCE_THRESHOLD` at `:339` — a yellow
- * progress bar too.
+/** The near-miss version of `Silent`: `LOW_AUDIO_LEVEL_BYTES` puts `avg` at
+ * exactly `SILENCE_THRESHOLD`, matching it (`:38`) rather than sitting
+ * comfortably under it. The success check is `avg > SILENCE_THRESHOLD`
+ * (`:152`), so equal still fails — someone speaking is almost, but not quite,
+ * loud enough. Yellow alert, same as `Silent`, and — as of `level <=
+ * SILENCE_THRESHOLD` at `:339` — a yellow progress bar too.
  *
  * That bar comparison used to be a strict `<`, which disagreed with the
  * success check's strict `>` at this exact boundary: `MicrophoneTest`'s own
@@ -121,15 +142,17 @@ export const Silent: Story = harnessStory({
  * essentially never lands on this exact value; only a perfectly constant
  * mock does. */
 export const TooLow: Story = harnessStory({
-	avg: 2,
+	level: LOW_AUDIO_LEVEL_BYTES,
 	permission: "granted",
 });
 
-/** Comfortably above `SILENCE_THRESHOLD` (`:38`), so `isMicTestSuccessful` is
- * true from the first analyser tick. Green "Everything looks good" alert
- * (`:381-389`), progress bar blue, Continue enabled (`:410`). */
+/** Comfortably above `SILENCE_THRESHOLD` (`:38`): `SUFFICIENT_AUDIO_LEVEL_BYTES`
+ * makes `avg` (`MicrophoneTest.tsx:135-136`) clear the threshold with room to
+ * spare, so `isMicTestSuccessful` is true from the first analyser tick. Green
+ * "Everything looks good" alert (`:381-389`), progress bar blue, Continue
+ * enabled (`:410`). */
 export const VoiceDetected: Story = harnessStory({
-	avg: 24,
+	level: SUFFICIENT_AUDIO_LEVEL_BYTES,
 	permission: "granted",
 });
 
