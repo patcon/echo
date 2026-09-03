@@ -117,6 +117,59 @@ export const NoTutorial: Story = {
 };
 
 /**
+ * `PROJECT` with the tutorial slug fixed at `"None"` and only `legal_basis`
+ * swapped, so these three stories isolate the privacy card as the one
+ * variable between them.
+ */
+const withLegalBasis = (
+	legalBasis: NonNullable<ParticipantProject["legal_basis"]>,
+): ParticipantProject =>
+	({
+		...PROJECT,
+		default_conversation_tutorial_slug: "None",
+		legal_basis: legalBasis,
+	}) as unknown as ParticipantProject;
+
+/**
+ * `legal_basis: "client-managed"` — static text naming the organiser as data
+ * controller. No checkbox, no link, Next is never gated.
+ */
+export const ClientManagedBasis: Story = {
+	args: {
+		onFunnelStage: fn(),
+		project: withLegalBasis("client-managed"),
+	},
+	name: "Legal basis: client-managed",
+};
+
+/**
+ * `legal_basis: "consent"` — the only basis with a required checkbox; Next is
+ * disabled until it's checked. Also renders a link to the project's own
+ * `privacy_policy_url` and interpolates `organiser_name` into the copy.
+ */
+export const ConsentBasis: Story = {
+	args: {
+		onFunnelStage: fn(),
+		project: withLegalBasis("consent"),
+	},
+	name: "Legal basis: consent",
+};
+
+/**
+ * `legal_basis: "dembrane-events"` — static text citing dembrane's own
+ * legitimate interest, with a link to dembrane's privacy policy. No
+ * checkbox, and the link is a fixed dembrane URL rather than the project's
+ * `privacy_policy_url`.
+ */
+export const DembraneEventsBasis: Story = {
+	args: {
+		onFunnelStage: fn(),
+		project: withLegalBasis("dembrane-events"),
+	},
+	name: "Legal basis: dembrane-events",
+};
+
+/**
  * `default_conversation_tutorial_slug: "basic"` — a short welcome-plus-privacy
  * tutorial, no "Best Practices" section.
  */
@@ -146,12 +199,12 @@ export const AdvancedTutorial: Story = {
  * begin" form directly under a plain heading — a distinct render branch, not
  * a state within the deck above.
  */
-export const SkipOnboarding: Story = {
+export const SkipTutorial: Story = {
 	args: {
 		onFunnelStage: fn(),
-		project: PROJECT,
+		project: withTutorialSlug("advanced"),
 	},
-	name: "Skip onboarding (?skipOnboarding=1)",
+	name: "Skip to form",
 	parameters: {
 		router: {
 			path: "/en-US/w/workspace-story/projects/project-story/chats/chat-story?skipOnboarding=1",
