@@ -1,5 +1,5 @@
 import { Text } from "@mantine/core";
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { HttpResponse, http } from "msw";
 import { fn } from "storybook/test";
 import ParticipantOnboardingCards from "./ParticipantOnboardingCards";
@@ -41,9 +41,35 @@ const initiateConversationHandler = http.post(
  * a real microphone. `MicrophoneTest`'s own permission/device/volume states
  * are covered separately in `ParticipantSettingsModal.stories.tsx`.
  */
+/**
+ * In the real app this renders under `ParticipantLayout` (its `/start` route
+ * hides `ParticipantHeader`, so only the component's own internal logo row
+ * shows) — `main.!h-dvh.overflow-y-auto > div.flex.h-full.flex-col >
+ * main.relative.grow` (`ParticipantLayout.tsx:38-49`). The component relies
+ * on that real height: its root is `flex h-full flex-col` and its content
+ * area is `flex flex-grow flex-col justify-center`
+ * (`ParticipantOnboardingCards.tsx:394,401`), so without a height-constrained
+ * ancestor the nav buttons render inline after the content instead of
+ * pinned to the bottom, and nothing centers vertically.
+ */
+const withParticipantLayout: Decorator = (Story) => (
+	<main className="relative !h-dvh overflow-y-auto">
+		<div className="flex h-full flex-col">
+			<main className="relative grow">
+				<Story />
+			</main>
+		</div>
+	</main>
+);
+
 const meta = {
 	component: ParticipantOnboardingCards,
+	decorators: [withParticipantLayout],
 	parameters: {
+		// Storybook's default `layout: "padded"` adds ~16px around the canvas
+		// root, which pushes the `!h-dvh` wrapper above just past the viewport
+		// and makes it scroll. The real app renders full-bleed.
+		layout: "fullscreen",
 		msw: { handlers: [initiateConversationHandler] },
 		// Successful submit navigates to `/:language/:projectId/conversation/:id`
 		// (`ParticipantInitiateForm.tsx:169-171`); give it somewhere to land.
