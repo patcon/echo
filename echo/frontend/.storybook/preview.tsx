@@ -6,6 +6,7 @@ import { MantineProvider } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import type { Decorator, Preview } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { isCommonAssetRequest } from "msw";
 import { mswLoader } from "msw-storybook-addon/csf3";
 import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -194,6 +195,30 @@ const withAppProviders: Decorator = (Story, context) => {
 // not against a backend host.
 //
 // The worker file is served from `public/` via `staticDirs` in main.ts.
+//
+// The default setup registers the service worker at the origin root
+// ("/mockServiceWorker.js"), which 404s once GitHub Pages serves this build
+// under the `/echo/` project-site subpath. `import.meta.env.BASE_URL` picks up
+// `viteFinal`'s base override from main.ts, so this stays "/" locally.
+const isCommonStorybookRequest = (url: string) =>
+	/\.eot$|\.mdx$|sb-common-assets|__webpack_hmr|iframe\.html|sb-vite|@vite|@react-refresh|\/virtual:|\.stories\./.test(
+		url,
+	);
+const setupMsw = async () => {
+	const { setupWorker } = await import("msw/browser");
+	const worker = setupWorker();
+	await worker.start({
+		quiet: true,
+		serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
+		onUnhandledRequest(request, print) {
+			if (isCommonAssetRequest(request) || isCommonStorybookRequest(request.url)) {
+				return;
+			}
+			print.warning();
+		},
+	});
+	return worker;
+};
 
 // `MicrophoneTest` reads `navigator.mediaDevices`/`AudioContext` directly with
 // no prop seam. `parameters.media` (see `.storybook/mocks/media.ts`) patches
@@ -291,7 +316,7 @@ export const globalTypes: Preview["globalTypes"] = {
 const preview: Preview = {
 	decorators: [withAppProviders, withMediaMocks, withPortalFontScale],
 	globalTypes,
-	loaders: [mswLoader()],
+	loaders: [mswLoader(setupMsw)],
 	parameters: {
 		controls: {
 			matchers: {
