@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { StorybookConfig } from "@storybook/react-vite";
+
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // The builder picks up ../vite.config.ts automatically, so the lingui plugin,
 // the react-compiler babel pass, the `@/` alias and the __APP_BUILD_ID__ define
@@ -23,6 +27,16 @@ const config: StorybookConfig = {
 		if (process.env.STORYBOOK_BASE_PATH) {
 			config.base = process.env.STORYBOOK_BASE_PATH;
 		}
+		// Keep API_BASE_URL/DIRECTUS_PUBLIC_URL same-origin regardless of which
+		// host serves the build — see mocks/config.ts for why. Listed first so
+		// it wins over the broader "@" alias from vite.config.ts.
+		config.resolve = {
+			...config.resolve,
+			alias: {
+				"@/config": path.resolve(dirname, "./mocks/config.ts"),
+				...config.resolve?.alias,
+			},
+		};
 		return config;
 	},
 };
