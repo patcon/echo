@@ -13,6 +13,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { Toaster } from "@/components/common/Toaster";
 import { languageOptions } from "@/components/language/LanguagePicker";
 import { I18nProvider } from "@/components/layout/I18nProvider";
+import { AppPreferencesProvider } from "@/hooks/useAppPreferences";
 import { useWhitelabelLogo, WhitelabelLogoProvider } from "@/hooks/useWhitelabelLogo";
 import { stripLanguagePrefix } from "@/lib/language";
 import { theme } from "@/theme";
@@ -132,16 +133,22 @@ const AppProviders = ({
 	return (
 		<QueryClientProvider client={queryClient}>
 			<MantineProvider theme={theme}>
-				<WhitelabelLogoProvider>
-					<ResolveWhitelabelLogo>
-						<I18nProvider>
-							<ModalsProvider>
-								<RouterProvider router={router} />
-								<Toaster />
-							</ModalsProvider>
-						</I18nProvider>
-					</ResolveWhitelabelLogo>
-				</WhitelabelLogoProvider>
+				{/* Syncs --app-* and Mantine's own color/text vars to the current
+				    font preference (App.tsx does the same, nested here identically)
+				    so stories match the real app instead of Mantine's untouched
+				    defaults (e.g. --mantine-color-body staying white). */}
+				<AppPreferencesProvider>
+					<WhitelabelLogoProvider>
+						<ResolveWhitelabelLogo>
+							<I18nProvider>
+								<ModalsProvider>
+									<RouterProvider router={router} />
+									<Toaster />
+								</ModalsProvider>
+							</I18nProvider>
+						</ResolveWhitelabelLogo>
+					</WhitelabelLogoProvider>
+				</AppPreferencesProvider>
 			</MantineProvider>
 		</QueryClientProvider>
 	);
