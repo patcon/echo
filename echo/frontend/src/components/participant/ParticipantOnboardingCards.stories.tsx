@@ -63,7 +63,15 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** Minimal fixture: only the fields this component's tree reads. */
+/** Reused by the tag-related stories below. */
+const TAGS = [
+	{ id: "tag-1", text: "Session A" },
+	{ id: "tag-2", text: "Session B" },
+];
+
+/** Minimal fixture: only the fields this component's tree reads. No tags by
+ * default — the final form's tag `MultiSelect` only renders when
+ * `project.tags` is non-empty (`ParticipantInitiateForm.tsx:231`). */
 const PROJECT = {
 	default_conversation_ask_for_participant_name: true,
 	default_conversation_tutorial_slug: "advanced",
@@ -71,10 +79,7 @@ const PROJECT = {
 	legal_basis: "consent",
 	organiser_name: "River Cleanup Collective",
 	privacy_policy_url: "https://example.org/privacy",
-	tags: [
-		{ id: "tag-1", text: "Session A" },
-		{ id: "tag-2", text: "Session B" },
-	],
+	tags: [],
 } as unknown as ParticipantProject;
 
 /**
@@ -170,20 +175,41 @@ export const DembraneEventsBasis: Story = {
 };
 
 /**
+ * `withTutorialSlug("None")` plus `project.tags` populated, so these two
+ * tag stories isolate the final form's `MultiSelect` as the one variable
+ * between them.
+ */
+const withTags = (tags: typeof TAGS): ParticipantProject =>
+	({
+		...withTutorialSlug("None"),
+		tags,
+	}) as unknown as ParticipantProject;
+
+/**
+ * `project.tags` non-empty renders the final slide's tag `MultiSelect`
+ * (`ParticipantInitiateForm.tsx:231`), none selected by default.
+ */
+export const WithTags: Story = {
+	args: {
+		onFunnelStage: fn(),
+		project: withTags(TAGS),
+	},
+	name: "With tags",
+};
+
+/**
  * `?tags=` (or `?tag_id_list=`) resolves against `project.tags` in two
  * places: this component's own `preselectedTags` memo, which only feeds
  * `onFunnelStage`'s `tagsPreselected` flag, and `ParticipantInitiateForm`'s
  * `defaultTagIdList`, which preselects entries in the final slide's tag
- * `MultiSelect` (`ParticipantInitiateForm.tsx:250`). Click through to the
- * end to see it — the `client-managed` legal basis and `"None"` tutorial
- * slug keep the deck short so there's less to click past.
+ * `MultiSelect` (`ParticipantInitiateForm.tsx:250`).
  */
-export const PrefilledTags: Story = {
+export const TagsPrefilled: Story = {
 	args: {
 		onFunnelStage: fn(),
-		project: withTutorialSlug("None"),
+		project: withTags(TAGS),
 	},
-	name: "Prefilled tags (?tags=)",
+	name: "With tags prefilled (?tags=)",
 	parameters: {
 		router: {
 			path: "/en-US/w/workspace-story/projects/project-story/chats/chat-story?tags=tag-1,tag-2",
@@ -221,15 +247,58 @@ export const AdvancedTutorial: Story = {
  * begin" form directly under a plain heading — a distinct render branch, not
  * a state within the deck above.
  */
-export const SkipTutorial: Story = {
+export const SkipOnboarding: Story = {
 	args: {
 		onFunnelStage: fn(),
 		project: withTutorialSlug("advanced"),
 	},
-	name: "Skip to form",
 	parameters: {
 		router: {
 			path: "/en-US/w/workspace-story/projects/project-story/chats/chat-story?skipOnboarding=1",
+		},
+	},
+};
+
+/**
+ * `?skipOnboarding=1` with `default_conversation_ask_for_participant_name:
+ * false` and no `?participant_name=` satisfies the auto-submit effect's
+ * `hasRequiredName` check (`ParticipantInitiateForm.tsx:125-143`), so this
+ * submits immediately and lands on the recording console — no form is ever
+ * shown.
+ */
+export const SkipOnboardingNoName: Story = {
+	args: {
+		onFunnelStage: fn(),
+		project: {
+			...withTutorialSlug("None"),
+			default_conversation_ask_for_participant_name: false,
+		} as ParticipantProject,
+	},
+	name: "Skip Onboarding: No name (auto-submit)",
+	parameters: {
+		router: {
+			path: "/en-US/w/workspace-story/projects/project-story/chats/chat-story?skipOnboarding=1",
+		},
+	},
+};
+
+/**
+ * Same auto-submit as above, but `project.tags` is also populated and
+ * `?tags=` prefills them — tags are never required for auto-submit, so the
+ * prefilled selection is just carried along in the payload, unseen.
+ */
+export const SkipOnboardingPrefilledTags: Story = {
+	args: {
+		onFunnelStage: fn(),
+		project: {
+			...withTags(TAGS),
+			default_conversation_ask_for_participant_name: false,
+		} as ParticipantProject,
+	},
+	name: "Skip Onboarding: Prefilled tags (auto-submit)",
+	parameters: {
+		router: {
+			path: "/en-US/w/workspace-story/projects/project-story/chats/chat-story?skipOnboarding=1&tags=tag-1,tag-2",
 		},
 	},
 };
