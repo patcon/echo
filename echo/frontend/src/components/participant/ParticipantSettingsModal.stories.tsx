@@ -53,6 +53,12 @@ const SUFFICIENT_AUDIO_LEVEL_BYTES = levelForAvg(SILENCE_THRESHOLD * 12);
  * behaves exactly like the real app — including a real permission prompt. */
 const meta = {
 	component: ParticipantSettingsModal,
+	parameters: {
+		// Storybook's default `layout: "padded"` pads the canvas root on the
+		// left only in this modal's case (Mantine centers the modal in that
+		// padded box, not the real viewport), so it reads off-center.
+		layout: "fullscreen",
+	},
 	title: "Participant/ParticipantSettingsModal",
 } satisfies Meta<typeof ParticipantSettingsModal>;
 
@@ -66,7 +72,9 @@ const Harness = () => {
 	const [opened, { open, close }] = useDisclosure(true);
 	return (
 		<>
-			<Button onClick={open}>Open settings</Button>
+			<Button onClick={open} m="md">
+				Open settings
+			</Button>
 			<ParticipantSettingsModal onClose={close} opened={opened} />
 		</>
 	);

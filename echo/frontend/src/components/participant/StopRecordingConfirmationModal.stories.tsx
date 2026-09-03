@@ -87,6 +87,12 @@ import { StopRecordingConfirmationModal } from "./StopRecordingConfirmationModal
  */
 const meta = {
 	component: StopRecordingConfirmationModal,
+	parameters: {
+		// Storybook's default `layout: "padded"` pads the canvas root on the
+		// left only, so Mantine centering the modal in that padded box (not the
+		// real viewport) reads off-center.
+		layout: "fullscreen",
+	},
 	title: "Participant/StopRecordingConfirmationModal",
 } satisfies Meta<typeof StopRecordingConfirmationModal>;
 
