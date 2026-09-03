@@ -2,6 +2,7 @@ import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import type { ServerSentEventMessage } from "msw";
 import { http, sse } from "msw";
 import { useEffect } from "react";
+import { withParticipantLayout } from "../../../.storybook/decorators";
 import { ParticipantBody } from "./ParticipantBody";
 
 const PROJECT_ID = "project-body-story";
@@ -93,34 +94,27 @@ const UNHEALTHY_STREAM_HANDLERS = [
 ];
 
 /**
- * Reproduces the full ancestor chain `ParticipantBody` actually renders
- * inside: `ParticipantLayout`'s height-constrained
- * `main.!h-dvh.overflow-y-auto > div.flex.h-full.flex-col > main.relative.grow`
- * shell (copied from `ParticipantOnboardingCards.stories.tsx`), plus — the
- * part that matters for this component's own margins — the
- * `container mx-auto max-w-2xl` column with `p-4` padding both call sites
- * wrap directly around it (`ParticipantConversationAudio.tsx:747,922` and
- * `ParticipantConversationText.tsx:141,188-190`). Without the inner wrapper
- * `ParticipantBody` renders full-bleed instead of the centered, width-capped,
- * padded column it gets in the real app.
+ * The `container mx-auto max-w-2xl` column with `p-4` padding both real call
+ * sites wrap directly around `ParticipantBody`
+ * (`ParticipantConversationAudio.tsx:747,922` and
+ * `ParticipantConversationText.tsx:141,188-190`) — narrower than
+ * `withParticipantLayout`'s shared height shell, and specific to this
+ * component. Without it `ParticipantBody` renders full-bleed instead of the
+ * centered, width-capped, padded column it gets in the real app.
  */
-const withParticipantLayout: Decorator = (Story) => (
-	<main className="relative !h-dvh overflow-y-auto">
-		<div className="flex h-full flex-col">
-			<main className="relative grow">
-				<div className="container mx-auto flex h-full max-w-2xl flex-col">
-					<div className="relative flex-grow p-4">
-						<Story />
-					</div>
-				</div>
-			</main>
+const withConversationMargins: Decorator = (Story) => (
+	<div className="container mx-auto flex h-full max-w-2xl flex-col">
+		<div className="relative flex-grow p-4">
+			<Story />
 		</div>
-	</main>
+	</div>
 );
 
 const meta = {
 	component: ParticipantBody,
-	decorators: [withParticipantLayout],
+	// Listed innermost-first: `withConversationMargins` nests inside
+	// `withParticipantLayout`'s height shell, matching the real DOM order.
+	decorators: [withConversationMargins, withParticipantLayout],
 	parameters: {
 		layout: "fullscreen",
 		msw: { handlers: HEALTHY_STREAM_HANDLERS },
