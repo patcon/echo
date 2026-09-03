@@ -203,8 +203,65 @@ const withMediaMocks: Decorator = (Story, context) => {
 	return <Story />;
 };
 
+// Every size-bearing type-scale var `AppPreferencesProvider` writes
+// (`useAppPreferences.tsx:227-263`); line-heights and weights are ratios and
+// aren't touched by the real scale either.
+const SCALED_TYPE_VARS = [
+	"--app-base-font-size",
+	"--app-font-size-xs",
+	"--app-font-size-sm",
+	"--app-font-size-md",
+	"--app-font-size-lg",
+	"--app-font-size-xl",
+	"--app-heading-h1-size",
+	"--app-heading-h2-size",
+	"--app-heading-h3-size",
+	"--app-heading-h4-size",
+	"--app-heading-h5-size",
+	"--app-heading-h6-size",
+	"--app-home-icon-size",
+];
+
+/**
+ * `USE_PARTICIPANT_ROUTER` (`config.ts:73`) only turns on for a `portal.*`
+ * host or port 5174 — never true in Storybook — so `AppPreferencesProvider`
+ * (`useAppPreferences.tsx:16`) never applies the real portal's 0.9x
+ * type-scale reduction, and every "Participant/*" story renders ~11% larger
+ * than on an actual device. Reproduce that scale directly on the CSS
+ * variables it would have set (reading the current value so it stays in step
+ * with `index.css`'s ramp) for any story filed under that title, and restore
+ * them on unmount so other stories aren't left scaled down.
+ */
+const withPortalFontScale: Decorator = (Story, context) => {
+	const isParticipantStory = context.title.startsWith("Participant/");
+	useEffect(() => {
+		if (!isParticipantStory) return;
+		const root = document.documentElement;
+		const previousInlineValues = new Map<string, string>();
+		for (const name of SCALED_TYPE_VARS) {
+			const current = getComputedStyle(root).getPropertyValue(name).trim();
+			const match = current.match(/^([\d.]+)(rem|px)$/);
+			if (!match) continue;
+			previousInlineValues.set(name, root.style.getPropertyValue(name));
+			const scaled = Number.parseFloat(match[1]) * 0.9;
+			root.style.setProperty(
+				name,
+				`${Number.parseFloat(scaled.toFixed(4))}${match[2]}`,
+			);
+		}
+		return () => {
+			for (const name of SCALED_TYPE_VARS) {
+				const previous = previousInlineValues.get(name);
+				if (previous) root.style.setProperty(name, previous);
+				else root.style.removeProperty(name);
+			}
+		};
+	}, [isParticipantStory]);
+	return <Story />;
+};
+
 const preview: Preview = {
-	decorators: [withAppProviders, withMediaMocks],
+	decorators: [withAppProviders, withMediaMocks, withPortalFontScale],
 	loaders: [mswLoader()],
 	parameters: {
 		controls: {
