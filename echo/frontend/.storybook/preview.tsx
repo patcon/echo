@@ -10,8 +10,10 @@ import { mswLoader } from "msw-storybook-addon/csf3";
 import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { Toaster } from "@/components/common/Toaster";
+import { languageOptions } from "@/components/language/LanguagePicker";
 import { I18nProvider } from "@/components/layout/I18nProvider";
 import { useWhitelabelLogo, WhitelabelLogoProvider } from "@/hooks/useWhitelabelLogo";
+import { stripLanguagePrefix } from "@/lib/language";
 import { theme } from "@/theme";
 import {
 	installMediaMock,
@@ -147,11 +149,23 @@ const AppProviders = ({
 const withAppProviders: Decorator = (Story, context) => {
 	const router = (context.parameters.router ?? {}) as RouterParameters;
 	const query = (context.parameters.query ?? {}) as QueryParameters;
+	// Toolbar locale wins over a story's own `router.path` locale segment;
+	// left on "Story default" (empty string), the story's path is untouched.
+	const locale = context.globals.locale as string | undefined;
+	const path = locale
+		? `/${locale}${stripLanguagePrefix(router.path ?? DEFAULT_INITIAL_PATH)}`
+		: router.path;
 
 	return (
+		// Keyed on `path` so a toolbar locale change forces a full remount:
+		// Storybook re-renders decorators on a globals change but does not
+		// remount them, and the memory router's own internal state (plus
+		// anything downstream that only reads locale on mount) would
+		// otherwise survive the switch and need a manual page reload.
 		<AppProviders
+			key={path}
 			pattern={router.pattern}
-			path={router.path}
+			path={path}
 			routes={router.routes}
 			seed={query.seed}
 		>
@@ -260,8 +274,23 @@ const withPortalFontScale: Decorator = (Story, context) => {
 	return <Story />;
 };
 
+export const globalTypes: Preview["globalTypes"] = {
+	locale: {
+		description: "Lingui locale",
+		toolbar: {
+			dynamicTitle: true,
+			icon: "globe",
+			items: [
+				{ title: "Story default", value: "" },
+				...languageOptions.map((o) => ({ title: o.label, value: o.value })),
+			],
+		},
+	},
+};
+
 const preview: Preview = {
 	decorators: [withAppProviders, withMediaMocks, withPortalFontScale],
+	globalTypes,
 	loaders: [mswLoader()],
 	parameters: {
 		controls: {
