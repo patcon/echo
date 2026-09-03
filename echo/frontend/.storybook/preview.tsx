@@ -11,6 +11,7 @@ import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { Toaster } from "@/components/common/Toaster";
 import { I18nProvider } from "@/components/layout/I18nProvider";
+import { useWhitelabelLogo, WhitelabelLogoProvider } from "@/hooks/useWhitelabelLogo";
 import { theme } from "@/theme";
 import {
 	installMediaMock,
@@ -57,6 +58,19 @@ export type RouterParameters = {
 export type QueryParameters = {
 	/** `[queryKey, data]` rows written with `setQueryData` before first render. */
 	seed?: [readonly unknown[], unknown][];
+};
+
+// `Logo` (src/components/common/Logo.tsx) reads `useWhitelabelLogo()` and
+// renders a `Loader` while `logoUrl` is `undefined` — the "not resolved yet"
+// state. In the real app something always calls `setLogoUrl` shortly after
+// mount (`ParticipantLayout.tsx`, `useSidebarWhitelabelLogo.ts`); nothing in
+// a story does, so without this the spinner never goes away. Resolves to "no
+// custom logo" so stories show the default Dembrane mark instead of a
+// permanent spinner.
+const ResolveWhitelabelLogo = ({ children }: PropsWithChildren) => {
+	const { setLogoUrl } = useWhitelabelLogo();
+	useEffect(() => setLogoUrl(null), [setLogoUrl]);
+	return children;
 };
 
 const AppProviders = ({
@@ -115,12 +129,16 @@ const AppProviders = ({
 	return (
 		<QueryClientProvider client={queryClient}>
 			<MantineProvider theme={theme}>
-				<I18nProvider>
-					<ModalsProvider>
-						<RouterProvider router={router} />
-						<Toaster />
-					</ModalsProvider>
-				</I18nProvider>
+				<WhitelabelLogoProvider>
+					<ResolveWhitelabelLogo>
+						<I18nProvider>
+							<ModalsProvider>
+								<RouterProvider router={router} />
+								<Toaster />
+							</ModalsProvider>
+						</I18nProvider>
+					</ResolveWhitelabelLogo>
+				</WhitelabelLogoProvider>
 			</MantineProvider>
 		</QueryClientProvider>
 	);
