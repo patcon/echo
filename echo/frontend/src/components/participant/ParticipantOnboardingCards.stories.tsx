@@ -170,6 +170,28 @@ export const DembraneEventsBasis: Story = {
 };
 
 /**
+ * `?tags=` (or `?tag_id_list=`) resolves against `project.tags` in two
+ * places: this component's own `preselectedTags` memo, which only feeds
+ * `onFunnelStage`'s `tagsPreselected` flag, and `ParticipantInitiateForm`'s
+ * `defaultTagIdList`, which preselects entries in the final slide's tag
+ * `MultiSelect` (`ParticipantInitiateForm.tsx:250`). Click through to the
+ * end to see it — the `client-managed` legal basis and `"None"` tutorial
+ * slug keep the deck short so there's less to click past.
+ */
+export const PrefilledTags: Story = {
+	args: {
+		onFunnelStage: fn(),
+		project: withTutorialSlug("None"),
+	},
+	name: "Prefilled tags (?tags=)",
+	parameters: {
+		router: {
+			path: "/en-US/w/workspace-story/projects/project-story/chats/chat-story?tags=tag-1,tag-2",
+		},
+	},
+};
+
+/**
  * `default_conversation_tutorial_slug: "basic"` — a short welcome-plus-privacy
  * tutorial, no "Best Practices" section.
  */
