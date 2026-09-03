@@ -16,6 +16,15 @@ const config: StorybookConfig = {
 	// request silently falls through to the network.
 	staticDirs: ["../public"],
 	stories: ["../src/**/*.stories.@(ts|tsx)"],
+	// GitHub Pages serves this as a project site under /echo/, not the domain
+	// root, so the built assets need that base path baked in. Local dev and
+	// `pnpm build-storybook` without the env var are unaffected.
+	async viteFinal(config) {
+		if (process.env.STORYBOOK_BASE_PATH) {
+			config.base = process.env.STORYBOOK_BASE_PATH;
+		}
+		return config;
+	},
 };
 
 export default config;
