@@ -1,3 +1,4 @@
+import { Text } from "@mantine/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ServerSentEventMessage } from "msw";
 import { HttpResponse, http, sse } from "msw";
@@ -7,6 +8,7 @@ import { ParticipantConversationText } from "./ParticipantConversationText";
 
 const PROJECT_ID = "project-text-story";
 const CONVERSATION_ID = "conversation-text-story";
+const BASE_PATH = `/en-US/${PROJECT_ID}/conversation/${CONVERSATION_ID}/text`;
 
 const PROJECT = {
 	default_conversation_title: "Tell us about your river cleanup experience",
@@ -21,37 +23,96 @@ const CONVERSATION = {
 	project_id: PROJECT_ID,
 } as unknown as Conversation;
 
-const CHUNKS: TConversationChunk[] = [
-	{
-		id: "chunk-1",
-		timestamp: new Date("2024-01-01T00:00:00Z"),
-		transcript: "I think the river needs cleanup near the old bridge.",
-	},
-] as unknown as TConversationChunk[];
+const FIRST_CHUNK: TConversationChunk = {
+	id: "chunk-1",
+	timestamp: new Date("2024-01-01T00:00:00Z"),
+	transcript: "I think the river needs cleanup near the old bridge.",
+} as unknown as TConversationChunk;
 
-/** Rows shared by every story that wants a loaded page: project, conversation
- * and chunks (`ParticipantConversationText` reads all three directly), plus
- * an empty replies list (`ParticipantBody`, rendered inside, reads that key
- * on its own). */
-const SEED: [readonly unknown[], unknown][] = [
+/** Rows every story starts from: project, conversation and an empty replies
+ * list (`ParticipantBody`, rendered inside, reads that key on its own).
+ * Chunks are seeded per-story since the Finish button's visibility and the
+ * page's overall narrative both hinge on whether any exist yet. */
+const baseSeed = (
+	chunks: TConversationChunk[],
+): [readonly unknown[], unknown][] => [
 	[["participantProject", PROJECT_ID], PROJECT],
 	[["participant", "conversation", PROJECT_ID, CONVERSATION_ID], CONVERSATION],
-	[["participant", "conversation_chunks", CONVERSATION_ID], CHUNKS],
+	[["participant", "conversation_chunks", CONVERSATION_ID], chunks],
 	[["participant", "conversation_replies", CONVERSATION_ID], []],
 ];
+
+/** `useConversationQuery` and `useConversationChunksQuery` both carry a
+ * `refetchInterval: 60000` baked into the hooks, independent of the query
+ * client's `staleTime` — so a story left open for a minute polls these for
+ * real, and `useConversationChunksQuery` also runs unconditionally on mount
+ * (hooks can't be gated on another query's result). With no handler that
+ * poll 404s, which flips the query to an error state and clears the seeded
+ * data, landing on the "something went wrong" page. These answer the poll
+ * with the same chunks the story seeded, so it re-affirms rather than
+ * erroring. */
+const conversationPollHandler = http.get(
+	`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}`,
+	() => HttpResponse.json(CONVERSATION),
+);
+
+const chunksPollHandler = (chunks: TConversationChunk[]) =>
+	http.get(
+		`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}/chunks`,
+		() => HttpResponse.json(chunks),
+	);
+
+/** Bundles a chunk list's seed and poll handlers together, so a story
+ * seeding N chunks can't drift from what its background poll answers with —
+ * see the comment above for why that poll needs a real answer at all. */
+const withChunks = (chunks: TConversationChunk[]) => ({
+	msw: {
+		handlers: [
+			healthyStreamHandler,
+			uploadTextHandler,
+			conversationPollHandler,
+			chunksPollHandler(chunks),
+		],
+	},
+	query: { seed: baseSeed(chunks) },
+});
 
 const HEALTH_STREAM_PATH = "/api/conversations/health/stream";
 
 /** `useConversationsHealthStream` opens a raw `EventSource`, which MSW's
- * `sse()` handler intercepts directly. See `ParticipantBody.stories.tsx` for
- * the fuller explanation of why a plain `http.get` handler won't catch it. */
+ * `sse()` handler intercepts directly — a plain `http.get` handler doesn't
+ * catch it. The hook also marks the connection unhealthy on its own if 60s
+ * pass with no ping (a real dead-connection check), so a handler that only
+ * sends one ping on open goes stale and surfaces the "something went wrong"
+ * banner on any story left open a while. This repeats the ping well under
+ * that threshold.
+ *
+ * `sse()`'s resolver has no way to detect the `EventSource` closing (no
+ * abort signal, no close callback — checked the MSW docs), and catching the
+ * write failure doesn't work either: `client.send()` swallows it internally
+ * (logs its own "[MSW] Failed to write..." plus the original error) rather
+ * than throwing to the caller, confirmed by watching a leaked interval spam
+ * the console for the better part of an hour uninterrupted. So instead of
+ * detecting a close, this leans on there only ever being one story mounted
+ * at a time: switching stories opens a new `EventSource`, re-running this
+ * resolver, so tracking the previous interval at module scope and clearing
+ * it on the next connection kills the old one exactly when it goes stale —
+ * no exception handling needed. */
+let activePingInterval: ReturnType<typeof setInterval> | undefined;
+
 const healthyStreamHandler = sse<{ ping: Record<string, unknown> }>(
 	HEALTH_STREAM_PATH,
 	({ client }) => {
-		client.send({
-			data: {},
-			event: "ping",
-		} as ServerSentEventMessage<{ ping: Record<string, unknown> }>);
+		if (activePingInterval) clearInterval(activePingInterval);
+
+		const send = () =>
+			client.send({
+				data: {},
+				event: "ping",
+			} as ServerSentEventMessage<{ ping: Record<string, unknown> }>);
+
+		send();
+		activePingInterval = setInterval(send, 20_000);
 	},
 );
 
@@ -77,11 +138,21 @@ const meta = {
 	decorators: [withParticipantLayout],
 	parameters: {
 		layout: "fullscreen",
-		msw: { handlers: [healthyStreamHandler, uploadTextHandler] },
-		query: { seed: SEED },
+		...withChunks([]),
 		router: {
-			path: `/en-US/${PROJECT_ID}/conversation/${CONVERSATION_ID}/text`,
+			path: BASE_PATH,
 			pattern: "/:language?/:projectId/conversation/:conversationId/text",
+			// Pressing "Yes" in the finish modal navigates here for real
+			// (`ParticipantConversationText.tsx`'s `handleConfirmFinishButton`).
+			// A placeholder stands in for the actual next screen
+			// (`ParticipantPostConversation`), which isn't storied yet — link to
+			// its story here once it is.
+			routes: [
+				{
+					element: <Text p="lg">Conversation finished (not storied yet).</Text>,
+					path: `/en-US/${PROJECT_ID}/conversation/${CONVERSATION_ID}/finish`,
+				},
+			],
 		},
 	},
 	title: "Participant/ParticipantConversationText",
@@ -91,19 +162,55 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** Everything loaded: existing chunks, empty textarea, Finish button visible
- * (chunks non-empty and text empty). Typing and pressing Submit genuinely
- * appends a message, driven by the optimistic cache update plus
- * `uploadTextHandler` above. */
-export const Default: Story = {};
+/** The very first thing a participant sees: no chunks submitted yet, empty
+ * textarea. The Finish button has nothing to gate on yet, so it's absent. */
+export const FreshArrival: Story = {
+	name: "Fresh Arrival",
+};
+
+/** Typed into the textarea but not yet submitted — still no chunks, so
+ * Finish stays absent even though there's now text on screen. */
+export const TypedFirstText: Story = {
+	name: "Typed First Text",
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.type(
+			await canvas.findByTestId("portal-text-input-textarea"),
+			"There's also a lot of plastic waste by the docks.",
+		);
+	},
+};
+
+/** The resting state right after a submit: one chunk on the conversation,
+ * textarea cleared, Finish now visible. */
+export const SubmittedFirstText: Story = {
+	name: "Submitted First Text",
+	parameters: withChunks([FIRST_CHUNK]),
+};
+
+/** A chunk already exists, and the participant has started typing another —
+ * Finish disappears again while there's unsent text, even though a finished
+ * conversation (one chunk) already exists underneath. */
+export const TypedMoreText: Story = {
+	name: "Typed More Text",
+	parameters: withChunks([FIRST_CHUNK]),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.type(
+			await canvas.findByTestId("portal-text-input-textarea"),
+			"There's also erosion near the boat launch.",
+		);
+	},
+};
 
 /** `?general_feedback=` (or `?feedback=`) prefills the textarea from the URL
- * on first render — a different entry path than a participant typing their
- * own text. */
+ * on first render — a participant arriving via a feedback link rather than
+ * typing their own opener. */
 export const PrefilledFromQueryParam: Story = {
+	name: "Prefilled From Query Param",
 	parameters: {
 		router: {
-			path: `/en-US/${PROJECT_ID}/conversation/${CONVERSATION_ID}/text?general_feedback=Loved the river tour, but the docks need attention.`,
+			path: `${BASE_PATH}?general_feedback=Loved the river tour, but the docks need attention.`,
 		},
 	},
 };
@@ -111,7 +218,9 @@ export const PrefilledFromQueryParam: Story = {
 /** Clicks the Finish button to open the confirmation modal. Mantine renders
  * `Modal` into a portal at the document root, so the assertion queries
  * `document.body` rather than the story's own canvas element. */
-export const FinishModalOpen: Story = {
+export const FinishConfirmModal: Story = {
+	name: "Finish Confirm Modal",
+	parameters: withChunks([FIRST_CHUNK]),
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		await userEvent.click(
@@ -128,6 +237,7 @@ export const Loading: Story = {
 		msw: {
 			handlers: [
 				healthyStreamHandler,
+				chunksPollHandler([]),
 				http.get(
 					`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}`,
 					() => new Promise(() => {}),
@@ -142,10 +252,12 @@ export const Loading: Story = {
  * "Something went wrong" panel with a reload button and, since a sharing
  * link is available for this project, a "Start New Conversation" button. */
 export const LoadError: Story = {
+	name: "Load Error",
 	parameters: {
 		msw: {
 			handlers: [
 				healthyStreamHandler,
+				chunksPollHandler([]),
 				http.get(
 					`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}`,
 					() => HttpResponse.json({ error: "not found" }, { status: 404 }),
