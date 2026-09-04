@@ -1,5 +1,5 @@
 import { t } from "@lingui/core/macro";
-import { ActionIcon, Menu, Paper, Text } from "@mantine/core";
+import { ActionIcon, Box, Menu, Paper } from "@mantine/core";
 import { IconDotsVertical, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router";
@@ -102,13 +102,13 @@ const UserChunkMessage = ({
 				</Menu>
 			</div>
 			<Paper className="my-2 rounded-t-xl rounded-bl-xl border-0 bg-gray-100 p-4">
-				<Text className="prose text-sm">
+				<Box className="prose text-sm">
 					{chunk.transcript == null ? (
 						<Markdown content={t`*Transcription in progress.*`} />
 					) : (
 						<Markdown content={chunk.transcript} />
 					)}
-				</Text>
+				</Box>
 			</Paper>
 		</div>
 	);

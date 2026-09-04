@@ -1,4 +1,4 @@
-import { Paper, Text } from "@mantine/core";
+import { Box, Paper } from "@mantine/core";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import { Markdown } from "@/components/common/Markdown";
@@ -27,9 +27,9 @@ const SystemMessage = ({
 			>
 				<div className="flex flex-col items-start gap-4 md:flex-row">
 					{title && <div className="flex-shrink-0">{title}</div>}
-					<Text className="prose text-sm">
+					<Box className="prose text-sm">
 						<Markdown content={markdown ?? ""} />
-					</Text>
+					</Box>
 				</div>
 			</Paper>
 		</div>
