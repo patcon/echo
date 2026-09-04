@@ -1,9 +1,9 @@
 import { Text } from "@mantine/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { ServerSentEventMessage } from "msw";
-import { HttpResponse, http, sse } from "msw";
+import { HttpResponse, http } from "msw";
 import { userEvent, within } from "storybook/test";
 import { withParticipantLayout } from "../../../.storybook/decorators";
+import { healthStreamHandler } from "../../../.storybook/mocks/healthStream";
 import { ParticipantConversationText } from "./ParticipantConversationText";
 
 const PROJECT_ID = "project-text-story";
@@ -68,7 +68,7 @@ const chunksPollHandler = (chunks: TConversationChunk[]) =>
 const withChunks = (chunks: TConversationChunk[]) => ({
 	msw: {
 		handlers: [
-			healthyStreamHandler,
+			healthStreamHandler([{ event: "ping" }]),
 			uploadTextHandler,
 			conversationPollHandler,
 			chunksPollHandler(chunks),
@@ -76,45 +76,6 @@ const withChunks = (chunks: TConversationChunk[]) => ({
 	},
 	query: { seed: baseSeed(chunks) },
 });
-
-const HEALTH_STREAM_PATH = "/api/conversations/health/stream";
-
-/** `useConversationsHealthStream` opens a raw `EventSource`, which MSW's
- * `sse()` handler intercepts directly — a plain `http.get` handler doesn't
- * catch it. The hook also marks the connection unhealthy on its own if 60s
- * pass with no ping (a real dead-connection check), so a handler that only
- * sends one ping on open goes stale and surfaces the "something went wrong"
- * banner on any story left open a while. This repeats the ping well under
- * that threshold.
- *
- * `sse()`'s resolver has no way to detect the `EventSource` closing (no
- * abort signal, no close callback — checked the MSW docs), and catching the
- * write failure doesn't work either: `client.send()` swallows it internally
- * (logs its own "[MSW] Failed to write..." plus the original error) rather
- * than throwing to the caller, confirmed by watching a leaked interval spam
- * the console for the better part of an hour uninterrupted. So instead of
- * detecting a close, this leans on there only ever being one story mounted
- * at a time: switching stories opens a new `EventSource`, re-running this
- * resolver, so tracking the previous interval at module scope and clearing
- * it on the next connection kills the old one exactly when it goes stale —
- * no exception handling needed. */
-let activePingInterval: ReturnType<typeof setInterval> | undefined;
-
-const healthyStreamHandler = sse<{ ping: Record<string, unknown> }>(
-	HEALTH_STREAM_PATH,
-	({ client }) => {
-		if (activePingInterval) clearInterval(activePingInterval);
-
-		const send = () =>
-			client.send({
-				data: {},
-				event: "ping",
-			} as ServerSentEventMessage<{ ping: Record<string, unknown> }>);
-
-		send();
-		activePingInterval = setInterval(send, 20_000);
-	},
-);
 
 /** Real endpoint `useUploadConversationTextChunk` posts to. The mutation
  * already updates the chunks cache optimistically on `onMutate`, so this
@@ -236,7 +197,7 @@ export const Loading: Story = {
 	parameters: {
 		msw: {
 			handlers: [
-				healthyStreamHandler,
+				healthStreamHandler([{ event: "ping" }]),
 				chunksPollHandler([]),
 				http.get(
 					`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}`,
@@ -256,7 +217,7 @@ export const LoadError: Story = {
 	parameters: {
 		msw: {
 			handlers: [
-				healthyStreamHandler,
+				healthStreamHandler([{ event: "ping" }]),
 				chunksPollHandler([]),
 				http.get(
 					`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}`,

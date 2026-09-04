@@ -1,8 +1,11 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
-import type { ServerSentEventMessage } from "msw";
-import { http, sse } from "msw";
+import { HttpResponse, http } from "msw";
 import { useEffect } from "react";
 import { withParticipantLayout } from "../../../.storybook/decorators";
+import {
+	healthStreamHandler,
+	unhealthyHealthStreamHandler,
+} from "../../../.storybook/mocks/healthStream";
 import { ParticipantBody } from "./ParticipantBody";
 
 const PROJECT_ID = "project-body-story";
@@ -46,52 +49,21 @@ const SEED: [readonly unknown[], unknown][] = [
 	[["participant", "conversation_replies", CONVERSATION_ID], REPLIES],
 ];
 
-const HEALTH_STREAM_PATH = "/api/conversations/health/stream";
-
-/**
- * `useConversationsHealthStream` (`hooks/useConversationsHealthStream.ts:19-52`)
- * opens a raw `EventSource` with no React Query seam, so it can't be driven
- * via `parameters.query.seed` like the rest of `ParticipantBody`'s data.
- * MSW's `sse()` handler intercepts `EventSource` directly (a plain
- * `http.get` returning a streamed body does *not* catch it — `EventSource`
- * doesn't go through `fetch`/XHR) and leaves the connection open across
- * `resolver` calls, which is what keeps `sseConnectionHealthy` at its
- * default `true`: an `EventSource` fires `error` whenever its connection
- * closes, clean or not, so a resolver that returns would immediately flip a
- * story back to "unhealthy".
- */
-type HealthStreamEventMap = {
-	ping: Record<string, unknown>;
-	health_update: { conversation_issue: string };
-};
-
-const healthStreamHandler = (
-	events: {
-		[K in keyof HealthStreamEventMap]: {
-			event: K;
-			data?: HealthStreamEventMap[K];
-		};
-	}[keyof HealthStreamEventMap][],
-) =>
-	sse<HealthStreamEventMap>(HEALTH_STREAM_PATH, ({ client }) => {
-		for (const { event, data } of events) {
-			client.send({
-				data: data ?? {},
-				event,
-			} as ServerSentEventMessage<HealthStreamEventMap>);
-		}
-	});
-
+/** See `.storybook/mocks/healthStream.ts` for what these do and why. */
 const HEALTHY_STREAM_HANDLERS = [healthStreamHandler([{ event: "ping" }])];
+const UNHEALTHY_STREAM_HANDLERS = [unhealthyHealthStreamHandler()];
 
-/** `client.error()` makes the `EventSource` fire its native `error` event,
- * which is what actually flips `sseConnectionHealthy` to `false`
- * (`useConversationsHealthStream.ts:43-46`). */
-const UNHEALTHY_STREAM_HANDLERS = [
-	sse(HEALTH_STREAM_PATH, ({ client }) => {
-		client.error();
-	}),
-];
+/** `useConversationChunksQuery` carries a `refetchInterval: 60000` baked into
+ * the hook, independent of the query client's `staleTime` — so a story left
+ * open for a minute polls this for real. With no handler that poll 404s,
+ * flipping the query to an error state and clearing the seeded chunks. This
+ * answers with the same chunks the story seeded, so the poll re-affirms
+ * rather than erroring. */
+const chunksPollHandler = (chunks: TConversationChunk[]) =>
+	http.get(
+		`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}/chunks`,
+		() => HttpResponse.json(chunks),
+	);
 
 /**
  * The `container mx-auto max-w-2xl` column with `p-4` padding both real call
@@ -117,7 +89,7 @@ const meta = {
 	decorators: [withConversationMargins, withParticipantLayout],
 	parameters: {
 		layout: "fullscreen",
-		msw: { handlers: HEALTHY_STREAM_HANDLERS },
+		msw: { handlers: [...HEALTHY_STREAM_HANDLERS, chunksPollHandler(CHUNKS)] },
 		query: { seed: SEED },
 	},
 	title: "Participant/ParticipantBody",
@@ -208,6 +180,10 @@ export const NoResponsesYet: Story = {
 		projectId: PROJECT_ID,
 	},
 	parameters: {
+		// Overrides the meta default's `chunksPollHandler(CHUNKS)` — inheriting
+		// it would repopulate two chunks on this story's first 60s poll,
+		// undoing the empty state the seed below sets up.
+		msw: { handlers: [...HEALTHY_STREAM_HANDLERS, chunksPollHandler([])] },
 		query: {
 			seed: [
 				[["participantProject", PROJECT_ID], PROJECT],
@@ -269,7 +245,9 @@ export const ConnectionUnhealthy: Story = {
 		projectId: PROJECT_ID,
 	},
 	parameters: {
-		msw: { handlers: UNHEALTHY_STREAM_HANDLERS },
+		msw: {
+			handlers: [...UNHEALTHY_STREAM_HANDLERS, chunksPollHandler(CHUNKS)],
+		},
 	},
 };
 
@@ -295,6 +273,7 @@ export const AudioIssueBanner: Story = {
 						event: "health_update",
 					},
 				]),
+				chunksPollHandler(CHUNKS),
 			],
 		},
 	},
@@ -316,6 +295,7 @@ export const ProjectLoading: Story = {
 		msw: {
 			handlers: [
 				...HEALTHY_STREAM_HANDLERS,
+				chunksPollHandler([]),
 				http.get(
 					`/api/participant/projects/${PROJECT_ID}`,
 					() => new Promise(() => {}),
