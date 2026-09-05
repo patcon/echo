@@ -36,20 +36,20 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** Generation has finished and an artefact id is in hand. */
-export const Default: Story = {
-	args: {
-		canProceed: true,
-		isLoading: false,
-	},
-};
-
 /** Generation in flight. Note the step circles are blue here and grey when
  * idle, which is the opposite of how the rest of the portal signals progress. */
 export const Generating: Story = {
 	args: {
 		canProceed: false,
 		isLoading: true,
+	},
+};
+
+/** Generation has finished and an artefact id is in hand. */
+export const Ready: Story = {
+	args: {
+		canProceed: true,
+		isLoading: false,
 	},
 };
 
@@ -60,4 +60,5 @@ export const WaitingToProceed: Story = {
 		canProceed: false,
 		isLoading: false,
 	},
+	tags: ["edge-case"],
 };
