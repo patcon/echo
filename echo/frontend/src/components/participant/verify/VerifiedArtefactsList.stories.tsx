@@ -150,7 +150,8 @@ const artefact = (
 		Pick<VerificationArtifact, "id" | "key">,
 ): VerificationArtifact => ({
 	approved_at: "2026-09-04T14:32:00.000Z",
-	content: "Placeholder outcome content.",
+	content:
+		"### Placeholder markdown content\n- something **bold**\n- something _italics_",
 	conversation_id: CONVERSATION_ID,
 	date_created: "2026-09-04T14:28:00.000Z",
 	read_aloud_stream_url: "",
@@ -261,17 +262,31 @@ export const Default: Story = {};
 /** With no topic metadata the label falls back twice: first to the artefact's
  * own `topic_label`, then to the bare key, which for a custom topic exposes the
  * generated slug. Neither resolves an icon. */
-export const FallbackLabels: Story = {
+export const FallbackTopicLabel: Story = {
 	parameters: {
 		layout: "fullscreen",
 		...withData(
 			[
 				artefact({
 					id: "artefact-1",
-					key: "agreements",
-					topic_label: "What we actually agreed on",
+					key: CUSTOM_TOPIC.key,
+					topic_label: "What surprised us about the timeline",
 				}),
-				artefact({ id: "artefact-2", key: CUSTOM_TOPIC.key }),
+			],
+			{ available_topics: [], selected_topics: [] },
+		),
+	},
+};
+
+export const FallbackKeyLabel: Story = {
+	parameters: {
+		layout: "fullscreen",
+		...withData(
+			[
+				artefact({
+					id: "artefact-1",
+					key: CUSTOM_TOPIC.key,
+				}),
 			],
 			{ available_topics: [], selected_topics: [] },
 		),

@@ -17,7 +17,8 @@ const withConversationOutlet: Decorator = (Story) => (
 
 const ARTEFACT: VerificationArtifact = {
 	approved_at: "2026-09-04T14:32:00.000Z",
-	content: "The pilot should start in one neighbourhood, not city-wide.",
+	content:
+		"### Placeholder markdown content\n- something **bold**\n- something _italics_",
 	conversation_id: "conversation-story",
 	date_created: "2026-09-04T14:28:00.000Z",
 	id: "artefact-1",
@@ -41,7 +42,7 @@ const meta = {
 	args: {
 		artefact: ARTEFACT,
 		icon: "✅",
-		label: "What we actually agreed on",
+		label: "Lorem ipsum dolor",
 		onViewArtefact: fn(),
 	},
 	component: VerifiedArtefactItem,
@@ -60,12 +61,35 @@ export const Default: Story = {};
 
 /** The longest of the six seeded defaults, and the widest bubble the built-in
  * topics can produce. */
-export const LongLabel: Story = {
+export const Long: Story = {
 	args: {
-		artefact: { ...ARTEFACT, key: "actions" },
-		icon: "↗️",
-		label: "What we think should happen",
+		artefact: ARTEFACT,
+		icon: "✅",
+		label: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
 	},
+};
+
+/**
+ * A realistically-spaced 99-character max label.
+ */
+export const MaxChars: Story = {
+	args: {
+		label:
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas iaculis felis et urna massa nunc.",
+	},
+	tags: ["edge-case"],
+};
+
+/** A worst-case label, longer than any real topic. The bubble has no max width
+ * of its own, so this is what bounds it: the right-aligned `Box` and the
+ * conversation container. Included to pin the wrap rather than trusting that
+ * the longest seeded label happens to be long enough. */
+export const MaxCharsNoSpaces: Story = {
+	args: {
+		label:
+			"wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+	},
+	tags: ["edge-case"],
 };
 
 /** A custom topic whose host left the icon blank. Customs have no entry in
@@ -73,9 +97,9 @@ export const LongLabel: Story = {
  * alone. */
 export const NoIcon: Story = {
 	args: {
-		artefact: { ...ARTEFACT, key: "what-surprised-us-3f9a2c1b" },
+		artefact: ARTEFACT,
 		icon: undefined,
-		label: "What surprised us about the timeline",
+		label: "Lorem ipsum dolor",
 	},
 };
 
@@ -85,15 +109,5 @@ export const NoTimestamp: Story = {
 	args: {
 		artefact: { ...ARTEFACT, approved_at: null },
 	},
-};
-
-/** A worst-case label, longer than any real topic. The bubble has no max width
- * of its own, so this is what bounds it: the right-aligned `Box` and the
- * conversation container. Included to pin the wrap rather than trusting that
- * the longest seeded label happens to be long enough. */
-export const OverflowLabel: Story = {
-	args: {
-		label:
-			"wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
-	},
+	tags: ["unused"],
 };
