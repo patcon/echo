@@ -57,19 +57,25 @@ const project = {
 
 /** Seeds both queries and answers both requests, so a refetch cannot leave the
  * two disagreeing. `generateMs` delays the generate response, which is the only
- * way to hold `VerifyInstructions` in its loading half long enough to see. */
+ * way to hold `VerifyInstructions` in its loading half long enough to see.
+ *
+ * `loadMs` delays the two reads instead, and drops the seed along with it:
+ * seeded data renders before any response lands, so a story cannot both seed
+ * and show the loading gate. */
 const withData = (
 	topics: VerificationTopicsResponse,
-	{ generateMs = 0 }: { generateMs?: number } = {},
+	{ generateMs = 0, loadMs = 0 }: { generateMs?: number; loadMs?: number } = {},
 ) => ({
 	msw: {
 		handlers: [
-			http.get(`/api/participant/projects/${PROJECT_ID}`, () =>
-				HttpResponse.json(project),
-			),
-			http.get(`/api/verify/topics/${PROJECT_ID}`, () =>
-				HttpResponse.json(topics),
-			),
+			http.get(`/api/participant/projects/${PROJECT_ID}`, async () => {
+				if (loadMs) await delay(loadMs);
+				return HttpResponse.json(project);
+			}),
+			http.get(`/api/verify/topics/${PROJECT_ID}`, async () => {
+				if (loadMs) await delay(loadMs);
+				return HttpResponse.json(topics);
+			}),
 			http.post("/api/verify/generate", async () => {
 				if (generateMs) await delay(generateMs);
 				return HttpResponse.json({ artifact_list: [GENERATED_ARTEFACT] });
@@ -77,10 +83,12 @@ const withData = (
 		],
 	},
 	query: {
-		seed: [
-			[["participantProject", PROJECT_ID], project],
-			[["verify", "topics", PROJECT_ID], topics],
-		],
+		seed: loadMs
+			? []
+			: [
+					[["participantProject", PROJECT_ID], project],
+					[["verify", "topics", PROJECT_ID], topics],
+				],
 	},
 });
 
@@ -127,27 +135,14 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** All seven topics, wrapping as needed, with Next disabled until one is picked.
- * The six seeded shortcodes are all discarded for mapped emoji; only the custom
- * topic renders its own stored icon. */
-export const Default: Story = {};
-
-/** One card in the selected treatment, which is the only thing that enables
- * Next. Driven by test id because the labels are translated. */
-export const Selected: Story = {
-	play: async ({ canvasElement }) => {
-		const canvas = within(canvasElement);
-		await userEvent.click(canvas.getByTestId("portal-verify-topic-gems"));
-	},
-};
-
-/** The host selected no topics. Next is permanently disabled, so the screen is
- * a dead end for the participant. */
-export const NoTopics: Story = {
+/** The whole flow wired end to end, starting from a cold cache: a second of
+ * loading, then pick a topic, generate against a slow endpoint, watch the
+ * instructions fill in, and proceed to the approve screen. */
+export const Playground: Story = {
 	parameters: {
 		layout: "fullscreen",
 		router: ROUTER,
-		...withData({ available_topics: SEEDED_TOPICS, selected_topics: [] }),
+		...withData(ALL_TOPICS, { generateMs: 2000, loadMs: 1000 }),
 	},
 };
 
@@ -173,6 +168,20 @@ export const Loading: Story = {
 	},
 };
 
+/** All seven topics, wrapping as needed, with Next disabled until one is picked.
+ * The six seeded shortcodes are all discarded for mapped emoji; only the custom
+ * topic renders its own stored icon. */
+export const MultiTopic: Story = {};
+
+/** One card in the selected treatment, which is the only thing that enables
+ * Next. Driven by test id because the labels are translated. */
+export const MultiTopicSelected: Story = {
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByTestId("portal-verify-topic-gems"));
+	},
+};
+
 /** With a single topic there is nothing to choose, so the picker never renders:
  * generation starts on mount and the participant sees the instructions instead.
  * The auto-skip fires once per mount, guarded by `hasAutoTriedSingle`. */
@@ -184,6 +193,16 @@ export const SingleTopic: Story = {
 			available_topics: SEEDED_TOPICS,
 			selected_topics: ["gems"],
 		}),
+	},
+};
+
+/** The host selected no topics. Next is permanently disabled, so the screen is
+ * a dead end for the participant. */
+export const NoTopics: Story = {
+	parameters: {
+		layout: "fullscreen",
+		router: ROUTER,
+		...withData({ available_topics: SEEDED_TOPICS, selected_topics: [] }),
 	},
 };
 
@@ -233,16 +252,5 @@ export const GenerateFails: Story = {
 		await userEvent.click(
 			canvas.getByTestId("portal-verify-selection-next-button"),
 		);
-	},
-};
-
-/** The whole flow wired end to end: pick a topic, generate against a slow
- * endpoint, watch the instructions fill in, then proceed to the approve
- * screen. */
-export const Playground: Story = {
-	parameters: {
-		layout: "fullscreen",
-		router: ROUTER,
-		...withData(ALL_TOPICS, { generateMs: 2000 }),
 	},
 };
