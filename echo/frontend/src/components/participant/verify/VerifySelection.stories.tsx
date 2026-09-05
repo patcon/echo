@@ -49,6 +49,33 @@ const SINGLE_TOPIC: VerificationTopicsResponse = {
 	selected_topics: ["gems"],
 };
 
+/** The same seven topics, with the first label swapped for a 99 character worst
+ * case. The length is not arbitrary: `CustomTopicModal` caps a host-written
+ * label at 100 characters and the server enforces the same, so this is the
+ * widest card the picker can ever be asked to lay out. Shared with
+ * `VerifiedArtefactItem`'s own max-length story.
+ *
+ * Synthetic in that no seeded translation runs this long, and a real host would
+ * hit the limit on a custom topic rather than on `agreements`. Overriding in
+ * place keeps the set identical to `MultiTopic` apart from the one label. */
+const LONG_LABEL_TOPICS: VerificationTopicsResponse = {
+	...ALL_TOPICS,
+	available_topics: ALL_TOPICS.available_topics.map((topic, index) =>
+		index === 0
+			? {
+					...topic,
+					translations: {
+						...topic.translations,
+						"en-US": {
+							label:
+								"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas iaculis felis et urna massa nunc.",
+						},
+					},
+				}
+			: topic,
+	),
+};
+
 /** How many topics the host selected, which is the one input that decides
  * whether this screen shows a picker, skips itself, or dead-ends. */
 type TopicSet = "multi" | "none" | "single";
@@ -312,6 +339,20 @@ export const Loading: Story = {
  * The six seeded shortcodes are all discarded for mapped emoji; only the custom
  * topic renders its own stored icon. */
 export const MultiTopic: Story = {};
+
+/** The first topic carrying a 99 character label, the longest a host can save.
+ * The cards are `Group` children with no max width of their own, so the
+ * conversation container is all that bounds them: the long card takes a row to
+ * itself and wraps inside it, pushing the rest down. Pinned rather than
+ * trusting the longest real translation to be long enough. */
+export const MultiTopicLong: Story = {
+	parameters: {
+		layout: "fullscreen",
+		router: ROUTER,
+		...withData(LONG_LABEL_TOPICS),
+	},
+	tags: ["edge-case"],
+};
 
 /** One card in the selected treatment, which is the only thing that enables
  * Next. Driven by test id because the labels are translated. */
