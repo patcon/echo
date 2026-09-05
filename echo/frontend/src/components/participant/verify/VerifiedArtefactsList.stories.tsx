@@ -22,6 +22,129 @@ const withConversationOutlet: Decorator = (Story) => (
 	</div>
 );
 
+/** The six default verification topics, transcribed from the server seed that
+ * `reconcile_default_verification_topics` applies at startup: real keys, real
+ * sort order, the eight locales the seed ships, and the Slack shortcode icons
+ * it stores. Shortcodes rather than emoji is the point. The component rejects
+ * any icon starting with ":" and substitutes one from `TOPIC_ICON_MAP`, so a
+ * fixture carrying emoji here would skip that path entirely.
+ *
+ * Transcribed, so it can drift if the seed changes. Re-read `seed.py` rather
+ * than trusting this if a label looks wrong. */
+const SEEDED_TOPICS: VerificationTopicMetadata[] = [
+	{
+		icon: ":white_check_mark:",
+		key: "agreements",
+		sort: 1,
+		translations: {
+			"cs-CZ": { label: "Na čem jsme se shodli" },
+			"de-DE": { label: "Worauf wir uns wirklich geeinigt haben" },
+			"en-US": { label: "What we actually agreed on" },
+			"es-ES": { label: "En qué estuvimos de acuerdo" },
+			"fr-FR": { label: "Ce qu'on a décidé ensemble" },
+			"it-IT": { label: "Su cosa ci siamo accordati" },
+			"nl-NL": { label: "Waar we het over eens werden" },
+			"uk-UA": { label: "Про що ми домовились" },
+		},
+	},
+	{
+		icon: ":mag:",
+		key: "gems",
+		sort: 2,
+		translations: {
+			"cs-CZ": { label: "Skryté klenoty" },
+			"de-DE": { label: "Verborgene Schätze" },
+			"en-US": { label: "Hidden gems" },
+			"es-ES": { label: "Joyas ocultas" },
+			"fr-FR": { label: "Pépites cachées" },
+			"it-IT": { label: "Perle nascoste" },
+			"nl-NL": { label: "Verborgen parels" },
+			"uk-UA": { label: "Приховані перлини" },
+		},
+	},
+	{
+		icon: ":eyes:",
+		key: "truths",
+		sort: 3,
+		translations: {
+			"cs-CZ": { label: "Bolestivé pravdy" },
+			"de-DE": { label: "Unbequeme Wahrheiten" },
+			"en-US": { label: "Painful truths" },
+			"es-ES": { label: "Verdades incómodas" },
+			"fr-FR": { label: "Vérités difficiles" },
+			"it-IT": { label: "Verità scomode" },
+			"nl-NL": { label: "Pijnlijke waarheden" },
+			"uk-UA": { label: "Болючі істини" },
+		},
+	},
+	{
+		icon: ":rocket:",
+		key: "moments",
+		sort: 4,
+		translations: {
+			"cs-CZ": { label: "Průlomové okamžiky" },
+			"de-DE": { label: "Durchbrüche" },
+			"en-US": { label: "Breakthrough moments" },
+			"es-ES": { label: "Momentos decisivos" },
+			"fr-FR": { label: "Moments décisifs" },
+			"it-IT": { label: "Momenti di svolta" },
+			"nl-NL": { label: "Doorbraken" },
+			"uk-UA": { label: "Моменти прориву" },
+		},
+	},
+	{
+		icon: ":arrow_upper_right:",
+		key: "actions",
+		sort: 5,
+		translations: {
+			"cs-CZ": { label: "Co by se podle nás mělo stát" },
+			"de-DE": { label: "Was wir denken, das passieren sollte" },
+			"en-US": { label: "What we think should happen" },
+			"es-ES": { label: "Lo que creemos que debe pasar" },
+			"fr-FR": { label: "Ce qu'on pense qu'il faut faire" },
+			"it-IT": { label: "Cosa pensiamo debba succedere" },
+			"nl-NL": { label: "Wat we denken dat moet gebeuren" },
+			"uk-UA": { label: "Що, на нашу думку, має статися" },
+		},
+	},
+	{
+		icon: ":warning:",
+		key: "disagreements",
+		sort: 6,
+		translations: {
+			"cs-CZ": { label: "Kdy jsme se shodli, že se neshodneme" },
+			"de-DE": { label: "Worüber wir uns nicht einig wurden" },
+			"en-US": { label: "Moments we agreed to disagree" },
+			"es-ES": { label: "Donde no coincidimos" },
+			"fr-FR": { label: "Là où on n'était pas d'accord" },
+			"it-IT": { label: "Dove non eravamo d'accordo" },
+			"nl-NL": { label: "Waar we het oneens bleven" },
+			"uk-UA": { label: "Де ми погодились не погоджуватись" },
+		},
+	},
+];
+
+/** Custom topics are created per project with a `<slug>-<8 hex>` key, an
+ * `en-US` translation plus whatever the host translated, and a free-text icon.
+ * Having no `TOPIC_ICON_MAP` entry, this is the only kind whose stored icon
+ * actually reaches the UI. */
+const CUSTOM_TOPIC: VerificationTopicMetadata = {
+	icon: "🤔",
+	is_custom: true,
+	key: "what-surprised-us-3f9a2c1b",
+	translations: {
+		"en-US": { label: "What surprised us about the timeline" },
+	},
+};
+
+const ALL_TOPICS: VerificationTopicsResponse = {
+	available_topics: [...SEEDED_TOPICS, CUSTOM_TOPIC],
+	selected_topics: [
+		...SEEDED_TOPICS.map((topic) => topic.key),
+		CUSTOM_TOPIC.key,
+	],
+};
+
 const artefact = (
 	overrides: Partial<VerificationArtifact> &
 		Pick<VerificationArtifact, "id" | "key">,
@@ -35,95 +158,45 @@ const artefact = (
 	...overrides,
 });
 
+/** One approved outcome per topic, so every label and icon in the fixture is
+ * on screen at once. */
 const ARTEFACTS: VerificationArtifact[] = [
 	artefact({
 		approved_at: "2026-09-04T14:05:00.000Z",
-		content: "The pilot should start in one neighbourhood, not city-wide.",
 		id: "artefact-1",
 		key: "agreements",
 	}),
 	artefact({
-		approved_at: "2026-09-04T14:19:00.000Z",
-		content: "Nobody could say who owns the review after the pilot ends.",
+		approved_at: "2026-09-04T14:11:00.000Z",
 		id: "artefact-2",
-		key: "disagreements",
+		key: "gems",
 	}),
 	artefact({
-		approved_at: "2026-09-04T14:32:00.000Z",
-		content: "Publish what did not work, not only what did.",
+		approved_at: "2026-09-04T14:17:00.000Z",
 		id: "artefact-3",
+		key: "truths",
+	}),
+	artefact({
+		approved_at: "2026-09-04T14:23:00.000Z",
+		id: "artefact-4",
+		key: "moments",
+	}),
+	artefact({
+		approved_at: "2026-09-04T14:29:00.000Z",
+		id: "artefact-5",
 		key: "actions",
 	}),
 	artefact({
+		approved_at: "2026-09-04T14:35:00.000Z",
+		id: "artefact-6",
+		key: "disagreements",
+	}),
+	artefact({
 		approved_at: "2026-09-04T14:41:00.000Z",
-		content: "The six week review window is tighter than it sounds.",
-		id: "artefact-4",
-		key: "what-surprised-us-3f9a2c1b",
+		id: "artefact-7",
+		key: CUSTOM_TOPIC.key,
 	}),
 ];
-
-/** Default topics are seeded server-side with Slack shortcode icons, never
- * emoji, so `icon` here is deliberately `":white_check_mark:"` and not "✅".
- * Custom topics take whatever the host typed. */
-const topic = (
-	key: string,
-	icon: string | null,
-	labels: Record<string, string>,
-	overrides: Partial<VerificationTopicMetadata> = {},
-): VerificationTopicMetadata => ({
-	icon,
-	key,
-	translations: Object.fromEntries(
-		Object.entries(labels).map(([locale, label]) => [locale, { label }]),
-	),
-	...overrides,
-});
-
-/** Labels and shortcodes quoted from the seeded defaults, plus one custom topic
- * of the shape `create_custom_topic` produces (slug plus eight hex chars). */
-const TOPICS: VerificationTopicsResponse = {
-	available_topics: [
-		topic(
-			"agreements",
-			":white_check_mark:",
-			{
-				"en-US": "What we actually agreed on",
-				"nl-NL": "Waar we het over eens werden",
-			},
-			{ sort: 1 },
-		),
-		topic(
-			"disagreements",
-			":warning:",
-			{
-				"en-US": "Moments we agreed to disagree",
-				"nl-NL": "Waar we het oneens bleven",
-			},
-			{ sort: 6 },
-		),
-		topic(
-			"actions",
-			":arrow_upper_right:",
-			{
-				"en-US": "What we think should happen",
-				"nl-NL": "Wat we denken dat moet gebeuren",
-			},
-			{ sort: 5 },
-		),
-		topic(
-			"what-surprised-us-3f9a2c1b",
-			"🤔",
-			{ "en-US": "What surprised us about the timeline" },
-			{ is_custom: true },
-		),
-	],
-	selected_topics: [
-		"agreements",
-		"disagreements",
-		"actions",
-		"what-surprised-us-3f9a2c1b",
-	],
-};
 
 /** Seeds both queries and answers both requests, so a refetch cannot leave the
  * two disagreeing. */
@@ -155,11 +228,11 @@ const withData = (
  * It joins two queries: the conversation's artefacts, and the project's
  * verification topics, which supply the label and the icon.
  *
- * Icons take two different routes depending on the topic. Seeded defaults ship
- * Slack shortcodes, which the component rejects with a `startsWith(":")` guard
- * and replaces from `TOPIC_ICON_MAP` keyed on the topic key. Custom topics have
- * no map entry, so their stored icon is the one that renders. Both routes are
- * exercised below.
+ * Labels are resolved per locale, mapped from the project's two-letter
+ * language. There is a story per seeded locale below, because label length
+ * varies enough between them to change how the bubbles wrap. Note the locale
+ * comes from the project, not from the Storybook language toolbar, which only
+ * switches Lingui's UI strings.
  *
  * Not storied: an empty artefact list renders null. */
 const meta = {
@@ -172,7 +245,7 @@ const meta = {
 	decorators: [withConversationOutlet, withParticipantLayout],
 	parameters: {
 		layout: "fullscreen",
-		...withData(ARTEFACTS, TOPICS),
+		...withData(ARTEFACTS, ALL_TOPICS),
 	},
 	title: "Participant/VerifiedArtefactsList",
 } satisfies Meta<typeof VerifiedArtefactsList>;
@@ -181,16 +254,52 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** Three seeded topics, whose shortcodes are discarded for mapped emoji, plus
- * one custom topic rendering its own stored emoji. */
-export const Default: Story = {};
+/** The six seeded topics, whose shortcodes are all discarded for mapped emoji,
+ * plus the custom topic rendering its own stored emoji. */
+export const English: Story = {};
 
-/** Dutch project, so labels come from the `nl-NL` translations. The custom topic
- * has no Dutch translation and falls back to its `en-US` label, which is what a
+/** Every story below swaps only the project language. The custom topic has no
+ * translation beyond `en-US`, so it stays English throughout, which is what a
  * host sees after adding a topic without translating it. */
-export const LocalizedLabels: Story = {
+export const Dutch: Story = {
 	args: {
 		projectLanguage: "nl",
+	},
+};
+
+export const German: Story = {
+	args: {
+		projectLanguage: "de",
+	},
+};
+
+export const Spanish: Story = {
+	args: {
+		projectLanguage: "es",
+	},
+};
+
+export const French: Story = {
+	args: {
+		projectLanguage: "fr",
+	},
+};
+
+export const Italian: Story = {
+	args: {
+		projectLanguage: "it",
+	},
+};
+
+export const Ukrainian: Story = {
+	args: {
+		projectLanguage: "uk",
+	},
+};
+
+export const Czech: Story = {
+	args: {
+		projectLanguage: "cs",
 	},
 };
 
@@ -207,7 +316,7 @@ export const FallbackLabels: Story = {
 					key: "agreements",
 					topic_label: "What we actually agreed on",
 				}),
-				artefact({ id: "artefact-2", key: "what-surprised-us-3f9a2c1b" }),
+				artefact({ id: "artefact-2", key: CUSTOM_TOPIC.key }),
 			],
 			{ available_topics: [], selected_topics: [] },
 		),
@@ -226,7 +335,7 @@ export const Loading: Story = {
 					() => new Promise(() => {}),
 				),
 				http.get(`/api/verify/topics/${PROJECT_ID}`, () =>
-					HttpResponse.json(TOPICS),
+					HttpResponse.json(ALL_TOPICS),
 				),
 			],
 		},
