@@ -23,7 +23,7 @@ const ARTEFACT: VerificationArtifact = {
 	id: "artefact-1",
 	key: "agreements",
 	read_aloud_stream_url: "",
-	topic_label: "Agreements",
+	topic_label: "What we actually agreed on",
 };
 
 /** Read-only viewer for an approved outcome, opened by tapping a

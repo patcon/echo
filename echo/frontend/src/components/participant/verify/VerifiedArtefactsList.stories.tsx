@@ -54,28 +54,75 @@ const ARTEFACTS: VerificationArtifact[] = [
 		id: "artefact-3",
 		key: "actions",
 	}),
+	artefact({
+		approved_at: "2026-09-04T14:41:00.000Z",
+		content: "The six week review window is tighter than it sounds.",
+		id: "artefact-4",
+		key: "what-surprised-us-3f9a2c1b",
+	}),
 ];
 
+/** Default topics are seeded server-side with Slack shortcode icons, never
+ * emoji, so `icon` here is deliberately `":white_check_mark:"` and not "✅".
+ * Custom topics take whatever the host typed. */
 const topic = (
 	key: string,
+	icon: string | null,
 	labels: Record<string, string>,
+	overrides: Partial<VerificationTopicMetadata> = {},
 ): VerificationTopicMetadata => ({
+	icon,
 	key,
 	translations: Object.fromEntries(
 		Object.entries(labels).map(([locale, label]) => [locale, { label }]),
 	),
+	...overrides,
 });
 
+/** Labels and shortcodes quoted from the seeded defaults, plus one custom topic
+ * of the shape `create_custom_topic` produces (slug plus eight hex chars). */
 const TOPICS: VerificationTopicsResponse = {
 	available_topics: [
-		topic("agreements", { "en-US": "Agreements", "nl-NL": "Afspraken" }),
-		topic("disagreements", {
-			"en-US": "Disagreements",
-			"nl-NL": "Meningsverschillen",
-		}),
-		topic("actions", { "en-US": "Actions", "nl-NL": "Acties" }),
+		topic(
+			"agreements",
+			":white_check_mark:",
+			{
+				"en-US": "What we actually agreed on",
+				"nl-NL": "Waar we het over eens werden",
+			},
+			{ sort: 1 },
+		),
+		topic(
+			"disagreements",
+			":warning:",
+			{
+				"en-US": "Moments we agreed to disagree",
+				"nl-NL": "Waar we het oneens bleven",
+			},
+			{ sort: 6 },
+		),
+		topic(
+			"actions",
+			":arrow_upper_right:",
+			{
+				"en-US": "What we think should happen",
+				"nl-NL": "Wat we denken dat moet gebeuren",
+			},
+			{ sort: 5 },
+		),
+		topic(
+			"what-surprised-us-3f9a2c1b",
+			"🤔",
+			{ "en-US": "What surprised us about the timeline" },
+			{ is_custom: true },
+		),
 	],
-	selected_topics: ["agreements", "disagreements", "actions"],
+	selected_topics: [
+		"agreements",
+		"disagreements",
+		"actions",
+		"what-surprised-us-3f9a2c1b",
+	],
 };
 
 /** Seeds both queries and answers both requests, so a refetch cannot leave the
@@ -106,8 +153,13 @@ const withData = (
  * one tappable to reopen its `ArtefactModal`.
  *
  * It joins two queries: the conversation's artefacts, and the project's
- * verification topics, which supply the human label and the emoji. Icons come
- * from `TOPIC_ICON_MAP` keyed on the topic key, not from the API.
+ * verification topics, which supply the label and the icon.
+ *
+ * Icons take two different routes depending on the topic. Seeded defaults ship
+ * Slack shortcodes, which the component rejects with a `startsWith(":")` guard
+ * and replaces from `TOPIC_ICON_MAP` keyed on the topic key. Custom topics have
+ * no map entry, so their stored icon is the one that renders. Both routes are
+ * exercised below.
  *
  * Not storied: an empty artefact list renders null. */
 const meta = {
@@ -129,11 +181,13 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** Three outcomes across three topics, each resolving both a label and an icon. */
+/** Three seeded topics, whose shortcodes are discarded for mapped emoji, plus
+ * one custom topic rendering its own stored emoji. */
 export const Default: Story = {};
 
-/** Dutch project, so labels come from the `nl-NL` translations rather than the
- * `en-US` fallback. The icons are locale-independent. */
+/** Dutch project, so labels come from the `nl-NL` translations. The custom topic
+ * has no Dutch translation and falls back to its `en-US` label, which is what a
+ * host sees after adding a topic without translating it. */
 export const LocalizedLabels: Story = {
 	args: {
 		projectLanguage: "nl",
@@ -141,8 +195,8 @@ export const LocalizedLabels: Story = {
 };
 
 /** With no topic metadata the label falls back twice: first to the artefact's
- * own `topic_label`, then to the bare key. One artefact of each here, and
- * neither resolves an icon. */
+ * own `topic_label`, then to the bare key, which for a custom topic exposes the
+ * generated slug. Neither resolves an icon. */
 export const FallbackLabels: Story = {
 	parameters: {
 		layout: "fullscreen",
@@ -151,9 +205,9 @@ export const FallbackLabels: Story = {
 				artefact({
 					id: "artefact-1",
 					key: "agreements",
-					topic_label: "Agreements",
+					topic_label: "What we actually agreed on",
 				}),
-				artefact({ id: "artefact-2", key: "what_surprised_us" }),
+				artefact({ id: "artefact-2", key: "what-surprised-us-3f9a2c1b" }),
 			],
 			{ available_topics: [], selected_topics: [] },
 		),

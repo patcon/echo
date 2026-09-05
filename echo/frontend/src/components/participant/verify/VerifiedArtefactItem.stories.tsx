@@ -17,27 +17,31 @@ const withConversationOutlet: Decorator = (Story) => (
 
 const ARTEFACT: VerificationArtifact = {
 	approved_at: "2026-09-04T14:32:00.000Z",
-	content: "We agreed the pilot should start with one neighbourhood.",
+	content: "The pilot should start in one neighbourhood, not city-wide.",
 	conversation_id: "conversation-story",
 	date_created: "2026-09-04T14:28:00.000Z",
 	id: "artefact-1",
 	key: "agreements",
 	read_aloud_stream_url: "",
-	topic_label: "Agreements",
+	topic_label: "What we actually agreed on",
 };
 
 /** One approved outcome, rendered as a right-aligned bubble in the participant's
  * conversation. Pure props, no queries. Its parent `VerifiedArtefactsList`
  * resolves `label` and `icon` from the verification topics before passing them
- * down, so both are plain strings here.
+ * down, so both arrive here as plain strings.
  *
- * Two independent things can be absent: the icon, and the `approved_at`
+ * Labels are quoted from the seeded default topics, which are full phrases
+ * rather than single nouns. Bubble width is driven entirely by that label, so a
+ * short placeholder would understate how wide these actually run.
+ *
+ * Two things can independently be absent: the icon, and the `approved_at`
  * timestamp that `formatArtefactTime` renders as `h:mm a`. */
 const meta = {
 	args: {
 		artefact: ARTEFACT,
 		icon: "✅",
-		label: "Agreements",
+		label: "What we actually agreed on",
 		onViewArtefact: fn(),
 	},
 	component: VerifiedArtefactItem,
@@ -54,12 +58,24 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-/** A custom topic, which has no entry in `TOPIC_ICON_MAP` and no icon of its
- * own, so the label carries the bubble alone. */
+/** The longest of the six seeded defaults, and the widest bubble the built-in
+ * topics can produce. */
+export const LongLabel: Story = {
+	args: {
+		artefact: { ...ARTEFACT, key: "actions" },
+		icon: "↗️",
+		label: "What we think should happen",
+	},
+};
+
+/** A custom topic whose host left the icon blank. Customs have no entry in
+ * `TOPIC_ICON_MAP`, so nothing backfills one and the label carries the bubble
+ * alone. */
 export const NoIcon: Story = {
 	args: {
+		artefact: { ...ARTEFACT, key: "what-surprised-us-3f9a2c1b" },
 		icon: undefined,
-		label: "What surprised us",
+		label: "What surprised us about the timeline",
 	},
 };
 
