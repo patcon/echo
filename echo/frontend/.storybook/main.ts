@@ -8,7 +8,11 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 // the react-compiler babel pass, the `@/` alias and the __APP_BUILD_ID__ define
 // all apply here exactly as they do in `pnpm dev`. Nothing is duplicated below.
 const config: StorybookConfig = {
-	addons: [],
+	// Renders a badge in the sidebar/toolbar for tags like `new`, `deprecated`
+	// or `experimental` declared on a meta or story. Default badge set only —
+	// customise by adding `.storybook/manager.ts` with `addons.setConfig({
+	// tagBadges: [...] })`.
+	addons: ["storybook-addon-tag-badges"],
 	framework: {
 		name: "@storybook/react-vite",
 		options: {},

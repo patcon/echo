@@ -343,6 +343,9 @@ importers:
       storybook:
         specifier: ^10.5.10
         version: 10.5.10(@types/react@19.0.12)(react@19.0.0)
+      storybook-addon-tag-badges:
+        specifier: ^3.1.0
+        version: 3.1.0(storybook@10.5.10(@types/react@19.0.12)(react@19.0.0))
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.17
@@ -4638,6 +4641,9 @@ packages:
   make-event-props@1.6.2:
     resolution: {integrity: sha512-iDwf7mA03WPiR8QxvcVHmVWEPfMY1RZXerDVNCRYW7dUr2ppH3J58Rwb39/WG39yTZdRSxr3x+2v22tvI0VEvA==}
 
+  map-or-similar@1.5.0:
+    resolution: {integrity: sha512-0aF7ZmVon1igznGI4VS30yugpduQW3y3GkcgGJOp7d8x8QrizhigUxjI/m2UojsXXto+jLAH3KSz+xOJTiORjg==}
+
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
@@ -4707,6 +4713,9 @@ packages:
 
   media-engine@1.0.3:
     resolution: {integrity: sha512-aa5tG6sDoK+k70B9iEX1NeyfT8ObCKhNDs6lJVpwF6r8vhUfuKMslIcirq6HIUYuuUYLefcEQOn9bSBOvawtwg==}
+
+  memoizerific@1.11.3:
+    resolution: {integrity: sha512-/EuHYwAPdLtXwAwSZkh/Gutery6pD2KYd44oQLhAvQp/50mpyduZh8Q7PYHXTCJ+wuXxt7oij2LXyIJOOYFPog==}
 
   merge-refs@1.3.0:
     resolution: {integrity: sha512-nqXPXbso+1dcKDpPCXvwZyJILz+vSLqGGOnDrYHQYE+B8n9JTCekVLC65AfCpR4ggVyA/45Y0iR9LDyS2iI+zA==}
@@ -5721,6 +5730,12 @@ packages:
   stdin-discarder@0.2.2:
     resolution: {integrity: sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ==}
     engines: {node: '>=18'}
+
+  storybook-addon-tag-badges@3.1.0:
+    resolution: {integrity: sha512-sVWVyUT8woEmSKDsePJtSFCP9RFojrmsibD11dL0/+pkn7HrkhaJC96uz3mnqt78OuO7qflFMLF1Bqg3JwnrJA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      storybook: ^10.0.0
 
   storybook@10.5.10:
     resolution: {integrity: sha512-Rz8k9ejFHsi7lbtJTaxZlhCUz4GkbJIKEoKDjXeLfr/ZhXip73E6keKxW0KH8iGeKiCqHAbJCV4YIQrxTOLiig==}
@@ -10798,6 +10813,8 @@ snapshots:
 
   make-event-props@1.6.2: {}
 
+  map-or-similar@1.5.0: {}
+
   markdown-table@3.0.4: {}
 
   match-sorter@8.0.3:
@@ -10998,6 +11015,10 @@ snapshots:
   mdn-data@2.27.1: {}
 
   media-engine@1.0.3: {}
+
+  memoizerific@1.11.3:
+    dependencies:
+      map-or-similar: 1.5.0
 
   merge-refs@1.3.0(@types/react@19.0.12):
     optionalDependencies:
@@ -12283,6 +12304,11 @@ snapshots:
   std-env@4.1.0: {}
 
   stdin-discarder@0.2.2: {}
+
+  storybook-addon-tag-badges@3.1.0(storybook@10.5.10(@types/react@19.0.12)(react@19.0.0)):
+    dependencies:
+      memoizerific: 1.11.3
+      storybook: 10.5.10(@types/react@19.0.12)(react@19.0.0)
 
   storybook@10.5.10(@types/react@19.0.12)(react@19.0.0):
     dependencies:
