@@ -10,8 +10,13 @@ const PROJECT_ID = "project-text-story";
 const CONVERSATION_ID = "conversation-text-story";
 const BASE_PATH = `/en-US/${PROJECT_ID}/conversation/${CONVERSATION_ID}/text`;
 
+// Self-describing placeholder copy: every string says what it is and who
+// wrote it, so a story reads as a labelled diagram of the screen rather than
+// as one particular conversation.
 const PROJECT = {
-	default_conversation_title: "Tell us about your river cleanup experience",
+	default_conversation_description:
+		"This is the page content written by the host.",
+	default_conversation_title: "This is the custom page title",
 	id: PROJECT_ID,
 	language: "en",
 	tags: [],
@@ -26,7 +31,7 @@ const CONVERSATION = {
 const FIRST_CHUNK: TConversationChunk = {
 	id: "chunk-1",
 	timestamp: new Date("2024-01-01T00:00:00Z"),
-	transcript: "I think the river needs cleanup near the old bridge.",
+	transcript: "This is the first submitted text entry.",
 } as unknown as TConversationChunk;
 
 /** Rows every story starts from: project, conversation and an empty replies
@@ -220,7 +225,7 @@ export const TypedFirstText: Story = {
 		const canvas = within(canvasElement);
 		await userEvent.type(
 			await canvas.findByTestId("portal-text-input-textarea"),
-			"I think the river needs cleanup near the old bridge.",
+			"This is the first submitted text entry.",
 		);
 	},
 };
@@ -242,7 +247,7 @@ export const TypedMoreText: Story = {
 		const canvas = within(canvasElement);
 		await userEvent.type(
 			await canvas.findByTestId("portal-text-input-textarea"),
-			"There's also erosion near the boat launch.",
+			"This is a second entry, typed but not yet submitted.",
 		);
 	},
 };
@@ -254,7 +259,7 @@ export const PrefilledFromQueryParam: Story = {
 	name: "Prefilled From Query Param",
 	parameters: {
 		router: {
-			path: `${BASE_PATH}?general_feedback=Loved the river tour, but the docks need attention.`,
+			path: `${BASE_PATH}?general_feedback=This is text prefilled from the URL.`,
 		},
 	},
 };
