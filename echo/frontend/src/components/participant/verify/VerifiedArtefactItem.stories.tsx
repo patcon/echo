@@ -86,3 +86,14 @@ export const NoTimestamp: Story = {
 		artefact: { ...ARTEFACT, approved_at: null },
 	},
 };
+
+/** A worst-case label, longer than any real topic. The bubble has no max width
+ * of its own, so this is what bounds it: the right-aligned `Box` and the
+ * conversation container. Included to pin the wrap rather than trusting that
+ * the longest seeded label happens to be long enough. */
+export const OverflowLabel: Story = {
+	args: {
+		label:
+			"wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+	},
+};

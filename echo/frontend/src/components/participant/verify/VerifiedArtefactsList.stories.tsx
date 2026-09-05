@@ -229,8 +229,8 @@ const withData = (
  * verification topics, which supply the label and the icon.
  *
  * Labels are resolved per locale, mapped from the project's two-letter
- * language. There is a story per seeded locale below, because label length
- * varies enough between them to change how the bubbles wrap. Note the locale
+ * language. `SEEDED_TOPICS` carries all eight shipped translations so the
+ * fixture matches the server, but only English is storied. Note the locale
  * comes from the project, not from the Storybook language toolbar, which only
  * switches Lingui's UI strings.
  *
@@ -256,52 +256,7 @@ type Story = StoryObj<typeof meta>;
 
 /** The six seeded topics, whose shortcodes are all discarded for mapped emoji,
  * plus the custom topic rendering its own stored emoji. */
-export const English: Story = {};
-
-/** Every story below swaps only the project language. The custom topic has no
- * translation beyond `en-US`, so it stays English throughout, which is what a
- * host sees after adding a topic without translating it. */
-export const Dutch: Story = {
-	args: {
-		projectLanguage: "nl",
-	},
-};
-
-export const German: Story = {
-	args: {
-		projectLanguage: "de",
-	},
-};
-
-export const Spanish: Story = {
-	args: {
-		projectLanguage: "es",
-	},
-};
-
-export const French: Story = {
-	args: {
-		projectLanguage: "fr",
-	},
-};
-
-export const Italian: Story = {
-	args: {
-		projectLanguage: "it",
-	},
-};
-
-export const Ukrainian: Story = {
-	args: {
-		projectLanguage: "uk",
-	},
-};
-
-export const Czech: Story = {
-	args: {
-		projectLanguage: "cs",
-	},
-};
+export const Default: Story = {};
 
 /** With no topic metadata the label falls back twice: first to the artefact's
  * own `topic_label`, then to the bare key, which for a custom topic exposes the
