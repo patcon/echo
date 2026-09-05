@@ -1,6 +1,9 @@
 import { Text } from "@mantine/core";
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
+import { useQueryClient } from "@tanstack/react-query";
 import { delay, HttpResponse, http } from "msw";
+import { useEffect, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router";
 import { userEvent, within } from "storybook/test";
 import type {
 	VerificationArtifact,
@@ -36,6 +39,36 @@ const ALL_TOPICS: VerificationTopicsResponse = {
 	],
 };
 
+const NO_TOPICS: VerificationTopicsResponse = {
+	available_topics: SEEDED_TOPICS,
+	selected_topics: [],
+};
+
+const SINGLE_TOPIC: VerificationTopicsResponse = {
+	available_topics: SEEDED_TOPICS,
+	selected_topics: ["gems"],
+};
+
+/** How many topics the host selected, which is the one input that decides
+ * whether this screen shows a picker, skips itself, or dead-ends. */
+type TopicSet = "multi" | "none" | "single";
+
+const TOPIC_SETS: Record<TopicSet, VerificationTopicsResponse> = {
+	multi: ALL_TOPICS,
+	none: NO_TOPICS,
+	single: SINGLE_TOPIC,
+};
+
+/** Which request fails. `VerifySelection` renders no error UI of its own, so
+ * each of these surfaces somewhere different, or nowhere at all. */
+type Failing = "generate-empty" | "generate" | "none" | "project" | "topics";
+
+/** Read at request time by the Playground's handlers, so switching a radio
+ * changes the response without rebuilding the handler (which `parameters.msw`
+ * fixes for the life of the story). */
+let activeTopicSet: TopicSet = "multi";
+let activeFailing: Failing = "none";
+
 const GENERATED_ARTEFACT: VerificationArtifact = {
 	approved_at: null,
 	content:
@@ -63,32 +96,53 @@ const project = {
  * seeded data renders before any response lands, so a story cannot both seed
  * and show the loading gate. */
 const withData = (
-	topics: VerificationTopicsResponse,
-	{ generateMs = 0, loadMs = 0 }: { generateMs?: number; loadMs?: number } = {},
+	topics: VerificationTopicsResponse | (() => VerificationTopicsResponse),
+	{
+		failing = () => "none" as Failing,
+		generateMs = 0,
+		loadMs = 0,
+	}: {
+		failing?: () => Failing;
+		generateMs?: number;
+		loadMs?: number;
+	} = {},
 ) => ({
 	msw: {
 		handlers: [
 			http.get(`/api/participant/projects/${PROJECT_ID}`, async () => {
 				if (loadMs) await delay(loadMs);
+				if (failing() === "project")
+					return new HttpResponse(null, { status: 500 });
 				return HttpResponse.json(project);
 			}),
 			http.get(`/api/verify/topics/${PROJECT_ID}`, async () => {
 				if (loadMs) await delay(loadMs);
-				return HttpResponse.json(topics);
+				if (failing() === "topics")
+					return new HttpResponse(null, { status: 500 });
+				return HttpResponse.json(
+					typeof topics === "function" ? topics() : topics,
+				);
 			}),
 			http.post("/api/verify/generate", async () => {
 				if (generateMs) await delay(generateMs);
+				if (failing() === "generate")
+					return new HttpResponse(null, { status: 500 });
+				// An empty list is a 200, so the failure surfaces from the hook's own
+				// throw rather than from axios.
+				if (failing() === "generate-empty")
+					return HttpResponse.json({ artifact_list: [] });
 				return HttpResponse.json({ artifact_list: [GENERATED_ARTEFACT] });
 			}),
 		],
 	},
 	query: {
-		seed: loadMs
-			? []
-			: [
-					[["participantProject", PROJECT_ID], project],
-					[["verify", "topics", PROJECT_ID], topics],
-				],
+		seed:
+			loadMs || typeof topics === "function"
+				? []
+				: [
+						[["participantProject", PROJECT_ID], project],
+						[["verify", "topics", PROJECT_ID], topics],
+					],
 	},
 });
 
@@ -104,6 +158,48 @@ const ROUTER = {
 		},
 	],
 };
+
+/** `VerifySelection` takes no props, so the Playground's radios are story args
+ * rather than component ones: they choose what the mocked endpoints answer
+ * with.
+ *
+ * Swapping the response is not enough on its own. The story's QueryClient
+ * holds the previous one at `staleTime: Infinity`, and the component latches
+ * both `hasAutoTriedSingle` and the `instructions` search param, so an arg only
+ * takes effect once the cached reads are dropped, a run through the flow is
+ * wound back, and the component is remounted. */
+const withPlaygroundArgs: Decorator = (Story, context) => {
+	const { failing = "none", topicSet = "multi" } = context.args as StoryArgs;
+	const queryClient = useQueryClient();
+	const [, setSearchParams] = useSearchParams();
+	const renderedArgs = useRef(`${topicSet}:${failing}`);
+	const argKey = `${topicSet}:${failing}`;
+
+	// During render rather than in an effect: the story's queries fire from
+	// child effects, which React runs before this decorator's own effects.
+	useMemo(() => {
+		activeTopicSet = topicSet;
+		activeFailing = failing;
+		queryClient.removeQueries({ queryKey: ["verify", "topics", PROJECT_ID] });
+		queryClient.removeQueries({ queryKey: ["participantProject", PROJECT_ID] });
+	}, [topicSet, failing, queryClient]);
+
+	// A run through the flow leaves ?instructions=true behind, which would
+	// otherwise greet the next combination with the instructions screen. Guarded
+	// on the value, not just the dependency list: `setSearchParams` changes
+	// identity whenever the params do, so an unguarded effect would wipe the
+	// param the moment the component set it.
+	useEffect(() => {
+		if (renderedArgs.current === argKey) return;
+		renderedArgs.current = argKey;
+		setSearchParams({}, { replace: true });
+	}, [argKey, setSearchParams]);
+
+	return <Story key={argKey} />;
+};
+
+/** Args are the story's own; `VerifySelection` itself takes none. */
+type StoryArgs = { failing?: Failing; topicSet?: TopicSet };
 
 /** The head of the verify flow: pick one topic, then generate an outcome for it.
  * Only topics the host both configured and selected appear, and the label is
@@ -129,7 +225,7 @@ const meta = {
 		...withData(ALL_TOPICS),
 	},
 	title: "Participant/VerifySelection",
-} satisfies Meta<typeof VerifySelection>;
+} satisfies Meta<StoryArgs>;
 
 export default meta;
 
@@ -137,12 +233,56 @@ type Story = StoryObj<typeof meta>;
 
 /** The whole flow wired end to end, starting from a cold cache: a second of
  * loading, then pick a topic, generate against a slow endpoint, watch the
- * instructions fill in, and proceed to the approve screen. */
+ * instructions fill in, and proceed to the approve screen.
+ *
+ * The topic-type radio switches between the three shapes a host can leave
+ * behind, each sending the screen somewhere different: `multi` shows the
+ * picker, `single` skips it and generates on arrival, and `none` dead-ends on
+ * the empty message.
+ *
+ * The failing-request radio is the more revealing one, because this screen has
+ * no error UI at all:
+ *
+ * - `topics` renders the same "No verification topics are configured" message
+ *   as a project with none selected. A participant cannot tell a broken backend
+ *   from a host who configured nothing, and there is no retry.
+ * - `project` is invisible. Only the label locale is read from the project, and
+ *   it already falls back to the UI language, so the picker looks untouched.
+ * - `generate` and `generate-empty` are the only failures the participant is
+ *   told about: both tear the instructions screen down, clear the selection,
+ *   and report through a toast naming the topic. They differ only in origin,
+ *   an axios 500 versus the hook's own throw on an empty `artifact_list`.
+ *
+ * Each switch replays the load. */
 export const Playground: Story = {
+	args: { failing: "none", topicSet: "multi" },
+	argTypes: {
+		failing: {
+			control: { type: "radio" },
+			name: "Failing request",
+			options: [
+				"none",
+				"project",
+				"topics",
+				"generate",
+				"generate-empty",
+			] satisfies Failing[],
+		},
+		topicSet: {
+			control: { type: "radio" },
+			name: "Topic type",
+			options: ["none", "single", "multi"] satisfies TopicSet[],
+		},
+	},
+	decorators: [withPlaygroundArgs],
 	parameters: {
 		layout: "fullscreen",
 		router: ROUTER,
-		...withData(ALL_TOPICS, { generateMs: 2000, loadMs: 1000 }),
+		...withData(() => TOPIC_SETS[activeTopicSet], {
+			failing: () => activeFailing,
+			generateMs: 2000,
+			loadMs: 1000,
+		}),
 	},
 };
 
@@ -189,10 +329,7 @@ export const SingleTopic: Story = {
 	parameters: {
 		layout: "fullscreen",
 		router: ROUTER,
-		...withData({
-			available_topics: SEEDED_TOPICS,
-			selected_topics: ["gems"],
-		}),
+		...withData(SINGLE_TOPIC),
 	},
 };
 
@@ -202,7 +339,7 @@ export const NoTopics: Story = {
 	parameters: {
 		layout: "fullscreen",
 		router: ROUTER,
-		...withData({ available_topics: SEEDED_TOPICS, selected_topics: [] }),
+		...withData(NO_TOPICS),
 	},
 };
 
@@ -224,27 +361,8 @@ export const InstructionsAfterReload: Story = {
 export const GenerateFails: Story = {
 	parameters: {
 		layout: "fullscreen",
-		msw: {
-			handlers: [
-				http.get(`/api/participant/projects/${PROJECT_ID}`, () =>
-					HttpResponse.json(project),
-				),
-				http.get(`/api/verify/topics/${PROJECT_ID}`, () =>
-					HttpResponse.json(ALL_TOPICS),
-				),
-				http.post(
-					"/api/verify/generate",
-					() => new HttpResponse(null, { status: 500 }),
-				),
-			],
-		},
-		query: {
-			seed: [
-				[["participantProject", PROJECT_ID], project],
-				[["verify", "topics", PROJECT_ID], ALL_TOPICS],
-			],
-		},
 		router: ROUTER,
+		...withData(ALL_TOPICS, { failing: () => "generate" }),
 	},
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
