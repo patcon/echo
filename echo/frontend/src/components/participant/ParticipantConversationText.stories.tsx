@@ -94,6 +94,50 @@ const uploadTextHandler = http.post(
 	},
 );
 
+/** Chunk list backing the Playground's handlers. Reset per render in the
+ * story's `beforeEach`, so re-opening the story starts from an empty
+ * conversation instead of inheriting the last visit's submissions. */
+let playgroundChunks: TConversationChunk[] = [];
+
+/** Stateful counterparts to the fixed handlers above: the upload endpoint
+ * appends to `playgroundChunks` and the chunks endpoint serves it back, so a
+ * submit survives the refetch the mutation's `onSettled` invalidation kicks
+ * off. Delete is answered too, since the per-chunk menu is live here. */
+const playgroundHandlers = [
+	healthStreamHandler([{ event: "ping" }]),
+	conversationPollHandler,
+	http.get(
+		`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}/chunks`,
+		() => HttpResponse.json(playgroundChunks),
+	),
+	http.post(
+		"/api/participant/conversations/:conversationId/upload-text",
+		async ({ request }) => {
+			const body = (await request.json()) as {
+				content: string;
+				timestamp: string;
+			};
+			const chunk = {
+				conversation_id: CONVERSATION_ID,
+				id: `chunk-${playgroundChunks.length + 1}`,
+				timestamp: body.timestamp,
+				transcript: body.content,
+			} as unknown as TConversationChunk;
+			playgroundChunks = [...playgroundChunks, chunk];
+			return HttpResponse.json(chunk);
+		},
+	),
+	http.delete(
+		`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}/chunks/:chunkId`,
+		({ params }) => {
+			playgroundChunks = playgroundChunks.filter(
+				(chunk) => chunk.id !== params.chunkId,
+			);
+			return new HttpResponse(null, { status: 204 });
+		},
+	),
+];
+
 const meta = {
 	component: ParticipantConversationText,
 	decorators: [withParticipantLayout],
@@ -122,6 +166,22 @@ const meta = {
 export default meta;
 
 type Story = StoryObj<typeof meta>;
+
+
+/** Fully wired, starting from a fresh arrival with no chunks: submitting
+ * appends a real chunk to the transcript above, and the per-chunk menu can
+ * delete it again. Each submitted chunk shows
+ * "Transcription in progress" for the moment the optimistic cache entry is
+ * on screen, then settles into its text once the refetch lands. */
+export const Playground: Story = {
+	beforeEach: () => {
+		playgroundChunks = [];
+	},
+	parameters: {
+		msw: { handlers: playgroundHandlers },
+		query: { seed: baseSeed([]) },
+	},
+};
 
 /** The very first thing a participant sees: no chunks submitted yet, empty
  * textarea. The Finish button has nothing to gate on yet, so it's absent. */
