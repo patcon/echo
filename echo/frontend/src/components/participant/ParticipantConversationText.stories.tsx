@@ -1,6 +1,6 @@
 import { Text } from "@mantine/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { HttpResponse, http } from "msw";
+import { delay, HttpResponse, http } from "msw";
 import { userEvent, within } from "storybook/test";
 import { withParticipantLayout } from "../../../.storybook/decorators";
 import { healthStreamHandler } from "../../../.storybook/mocks/healthStream";
@@ -102,10 +102,23 @@ let playgroundChunks: TConversationChunk[] = [];
 /** Stateful counterparts to the fixed handlers above: the upload endpoint
  * appends to `playgroundChunks` and the chunks endpoint serves it back, so a
  * submit survives the refetch the mutation's `onSettled` invalidation kicks
- * off. Delete is answered too, since the per-chunk menu is live here. */
+ * off, after a 1s delay so the pending states are visible. Delete is
+ * answered too, since the per-chunk menu is live here. */
 const playgroundHandlers = [
 	healthStreamHandler([{ event: "ping" }]),
-	conversationPollHandler,
+	// Project and conversation are fetched rather than seeded, so the page
+	// opens on its `LoadingOverlay` for a second the way a real arrival does.
+	http.get(`/api/participant/projects/${PROJECT_ID}`, async () => {
+		await delay(1000);
+		return HttpResponse.json(PROJECT);
+	}),
+	http.get(
+		`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}`,
+		async () => {
+			await delay(1000);
+			return HttpResponse.json(CONVERSATION);
+		},
+	),
 	http.get(
 		`/api/participant/projects/${PROJECT_ID}/conversations/${CONVERSATION_ID}/chunks`,
 		() => HttpResponse.json(playgroundChunks),
@@ -117,6 +130,9 @@ const playgroundHandlers = [
 				content: string;
 				timestamp: string;
 			};
+			// Answering instantly makes the submit spinner and the
+			// "Transcription in progress" placeholder flash by unreadably.
+			await delay(2000);
 			const chunk = {
 				conversation_id: CONVERSATION_ID,
 				id: `chunk-${playgroundChunks.length + 1}`,
@@ -167,19 +183,26 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-
-/** Fully wired, starting from a fresh arrival with no chunks: submitting
+/** Fully wired, starting from a fresh arrival with no chunks: project and
+ * conversation are fetched, so it opens on a 1s loading spinner. Submitting
  * appends a real chunk to the transcript above, and the per-chunk menu can
- * delete it again. Each submitted chunk shows
- * "Transcription in progress" for the moment the optimistic cache entry is
- * on screen, then settles into its text once the refetch lands. */
+ * delete it again. Each submitted chunk shows "Transcription in progress"
+ * while the optimistic cache entry is on screen, then settles into its text
+ * once the refetch lands. */
 export const Playground: Story = {
 	beforeEach: () => {
 		playgroundChunks = [];
 	},
 	parameters: {
 		msw: { handlers: playgroundHandlers },
-		query: { seed: baseSeed([]) },
+		// Only the rows the page can't fetch: the chunk list the optimistic
+		// update appends to, and the replies list `ParticipantBody` reads.
+		query: {
+			seed: [
+				[["participant", "conversation_chunks", CONVERSATION_ID], []],
+				[["participant", "conversation_replies", CONVERSATION_ID], []],
+			],
+		},
 	},
 };
 
@@ -197,7 +220,7 @@ export const TypedFirstText: Story = {
 		const canvas = within(canvasElement);
 		await userEvent.type(
 			await canvas.findByTestId("portal-text-input-textarea"),
-			"There's also a lot of plastic waste by the docks.",
+			"I think the river needs cleanup near the old bridge.",
 		);
 	},
 };
