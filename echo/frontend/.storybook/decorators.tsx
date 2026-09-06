@@ -20,3 +20,18 @@ export const withParticipantLayout: Decorator = (Story) => (
 		</div>
 	</main>
 );
+
+/**
+ * Reproduces the audio route's `<Outlet />` column in
+ * `ParticipantConversationAudio` — a centered, width-capped, bottom-aligned
+ * container. Everything on the conversation screen renders inside it, and
+ * anything that right-aligns itself or wraps only reads correctly at that
+ * width. Nest it inside `withParticipantLayout`.
+ */
+export const withConversationOutlet: Decorator = (Story) => (
+	<div className="container mx-auto flex h-full max-w-2xl flex-col justify-end">
+		<div className="relative flex-grow p-4">
+			<Story />
+		</div>
+	</div>
+);

@@ -1,19 +1,11 @@
-import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import type { VerificationArtifact } from "@/lib/api";
-import { withParticipantLayout } from "../../../../.storybook/decorators";
+import {
+	withConversationOutlet,
+	withParticipantLayout,
+} from "../../../../.storybook/decorators";
 import { VerifiedArtefactItem } from "./VerifiedArtefactItem";
-
-/** Reproduces the audio route's `<Outlet />` wrapper. This item right-aligns
- * itself inside its container, so it only reads correctly at the conversation's
- * width. */
-const withConversationOutlet: Decorator = (Story) => (
-	<div className="container mx-auto flex h-full max-w-2xl flex-col justify-end">
-		<div className="relative flex-grow p-4">
-			<Story />
-		</div>
-	</div>
-);
 
 const ARTEFACT: VerificationArtifact = {
 	approved_at: "2026-09-04T14:32:00.000Z",
