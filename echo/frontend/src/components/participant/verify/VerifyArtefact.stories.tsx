@@ -2,7 +2,7 @@ import { Text } from "@mantine/core";
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { useQueryClient } from "@tanstack/react-query";
 import { delay, HttpResponse, http } from "msw";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { userEvent, within } from "storybook/test";
 import type {
 	VerificationArtifactDetail,
@@ -71,6 +71,73 @@ const silentWav = (seconds: number) => {
 };
 
 const SILENT_AUDIO = silentWav(5);
+
+/** Stands in for the server's stream URL. Never fetched: `withSpeechAudio`
+ * ignores it and speaks instead. Non-empty only because that is what makes the
+ * button render. */
+const SPOKEN_STREAM_URL = "story://read-aloud";
+
+/** Markdown read aloud verbatim would include its own syntax, so the fake TTS
+ * speaks a stripped version. Crude on purpose: it only has to sound like the
+ * outcome, not round-trip. */
+const plainText = (markdown: string) =>
+	markdown
+		.replace(/[#*_`]/g, "")
+		.replace(/^\s*-\s*/gm, "")
+		.replace(/\s+/g, " ")
+		.trim();
+
+/** Backs `new Audio()` with the Web Speech API so read-aloud reads the outcome
+ * instead of playing a file. The component only ever touches `src`, `play()`,
+ * `pause()` and the `ended` event, so that is the whole surface to cover.
+ *
+ * Installed and torn down per story, following `.storybook/mocks/media.ts`: a
+ * patch left in place would hijack every later story in the same tab.
+ *
+ * Story-local because read-aloud is unique to this component. If a second
+ * consumer appears, this belongs in `.storybook/mocks/` behind a parameter the
+ * way the media mock is.
+ *
+ * Two browser caveats, neither worth working around here: `speak()` needs user
+ * activation in Chrome, so a play function's synthetic click is silent, and
+ * `getVoices()` populates behind `voiceschanged`, so the first click after a
+ * cold load can be too. */
+const withSpeechAudio = (text: string): Decorator =>
+	function WithSpeechAudio(Story) {
+		useEffect(() => {
+			const OriginalAudio = window.Audio;
+
+			class SpeechAudio extends EventTarget {
+				src: string;
+
+				constructor(src = "") {
+					super();
+					this.src = src;
+				}
+
+				play() {
+					const utterance = new SpeechSynthesisUtterance(text);
+					utterance.onend = () => this.dispatchEvent(new Event("ended"));
+					window.speechSynthesis.speak(utterance);
+					// The component never awaits this, but returning a promise keeps
+					// the fake honest about `HTMLMediaElement.play`'s signature.
+					return Promise.resolve();
+				}
+
+				pause() {
+					window.speechSynthesis.cancel();
+				}
+			}
+
+			window.Audio = SpeechAudio as unknown as typeof window.Audio;
+			return () => {
+				window.speechSynthesis.cancel();
+				window.Audio = OriginalAudio;
+			};
+		}, [text]);
+
+		return <Story />;
+	};
 
 const CONTENT = [
 	"### What this screen shows",
@@ -437,8 +504,13 @@ export const LongOutcome: Story = {
 
 /** The speaker button, which renders only when the artefact carries a
  * `read_aloud_stream_url`. Every other fixture in this directory leaves that
- * empty, so this is the only place the affordance appears at all. */
-export const ReadAloud: Story = {
+ * empty, so this and its TTS twin below are the only places the affordance
+ * appears at all.
+ *
+ * The stream is five seconds of silence, so clicking gets the pause icon and
+ * an arbitrary wait rather than anything to hear. */
+export const ReadAloudSilent: Story = {
+	name: "Read Aloud (Silent Placeholder)",
 	parameters: {
 		layout: "fullscreen",
 		router: ROUTER,
@@ -446,21 +518,20 @@ export const ReadAloud: Story = {
 	},
 };
 
-/** Tapped once, so the icon swaps to pause. `isPlaying` is set whether or not
- * playback actually started, and a play function's clicks are synthetic, so
- * the browser's autoplay policy most likely rejected the `play()` promise
- * behind this. */
-export const ReadAloudPlaying: Story = {
+/** The same button with `Audio` backed by the Web Speech API, so clicking
+ * actually reads the outcome and the pause icon lasts exactly as long as the
+ * text takes, rather than for a fixed five seconds.
+ *
+ * Still a placeholder: the real stream is server side, and Chrome gates
+ * `speechSynthesis.speak()` on user activation, so this only speaks for a real
+ * click in the canvas. */
+export const ReadAloudTts: Story = {
+	decorators: [withSpeechAudio(plainText(CONTENT))],
+	name: "Read Aloud (TTS Placeholder)",
 	parameters: {
 		layout: "fullscreen",
 		router: ROUTER,
-		...withData(artefact({ read_aloud_stream_url: SILENT_AUDIO })),
-	},
-	play: async ({ canvasElement }) => {
-		const canvas = within(canvasElement);
-		await userEvent.click(
-			await canvas.findByTestId("portal-verify-artefact-read-aloud-button"),
-		);
+		...withData(artefact({ read_aloud_stream_url: SPOKEN_STREAM_URL })),
 	},
 };
 
