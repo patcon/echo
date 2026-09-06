@@ -146,21 +146,31 @@ const withSpeechAudio = (text: string): Decorator =>
 		return <Story />;
 	};
 
-const CONTENT = [
-	"### What this screen shows",
-	"",
-	"The generated outcome for the *Hidden gems* topic, rendered read only.",
-	"",
+const BULLETS = [
 	"- **Revise** regenerates this text from whatever was said since it was written",
 	"- The **pencil** opens the same text in an editor, and those edits stay local",
 	"- **Approve** saves the content and returns to the conversation",
+];
+
+const CONTENT = [
+	"### What this screen shows",
+	"",
+	"The generated outcome for the *Hidden gems* topic, rendered from raw markdown.",
+	"",
+	...BULLETS,
 ].join("\n");
 
+/** What the revise endpoint answers with. Shaped like a real revision rather
+ * than a marker string, so what changed is legible at a glance: the same
+ * outcome, reworded heading, one line added, everything else carried over.
+ * Sharing `BULLETS` with `CONTENT` keeps the unchanged part unchanged. */
 const REVISED_CONTENT = [
-	"### This outcome has been revised",
+	"### What this revised screen shows",
 	"",
-	"A revise landed, so this replaced the original text. Any unapproved local",
-	"edit was dropped in the process.",
+	"The re-generated outcome for the *Hidden gems* topic, rendered from raw markdown.",
+	"",
+	"- This bullet was added in the revision. (Any draft local edit was dropped in the process.)",
+	...BULLETS,
 ].join("\n");
 
 const LONG_CONTENT = [
