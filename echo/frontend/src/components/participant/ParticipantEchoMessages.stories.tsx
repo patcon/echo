@@ -1,5 +1,6 @@
 import type { Message } from "@ai-sdk/react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useEffect, useState } from "react";
 import {
 	withConversationOutlet,
 	withParticipantLayout,
@@ -22,6 +23,44 @@ const FIRST_REPLY = assistant(
 	"reply-1",
 	"You've described two separate problem areas: the old bridge and the docks. The plastic waste at the docks sounds like it may have a different cause than the debris upstream.",
 );
+
+/** Words per arriving segment. The spans Gemini hands back through LiteLLM are
+ * chunky and uneven, so this is a stand-in for their rough size rather than a
+ * measurement — raise it for a jumpier stream, drop it to 1 for word-by-word. */
+const SEGMENT_WORDS = 3;
+const SEGMENT_INTERVAL_MS = 250;
+const REPLAY_PAUSE_MS = 2000;
+
+const REPLY_WORDS = FIRST_REPLY.content.split(" ");
+
+/** Appends `SEGMENT_WORDS` at a time, holds the finished reply, then starts
+ * over. `status` stays `streaming` throughout, so the story never drifts into
+ * the state `CompletedReply` already pins. */
+const StreamingReplySegments = (
+	args: React.ComponentProps<typeof ParticipantEchoMessages>,
+) => {
+	const [wordCount, setWordCount] = useState(SEGMENT_WORDS);
+
+	useEffect(() => {
+		const isComplete = wordCount >= REPLY_WORDS.length;
+		const timer = setTimeout(
+			() =>
+				setWordCount(isComplete ? SEGMENT_WORDS : wordCount + SEGMENT_WORDS),
+			isComplete ? REPLAY_PAUSE_MS : SEGMENT_INTERVAL_MS,
+		);
+		return () => clearTimeout(timer);
+	}, [wordCount]);
+
+	return (
+		<ParticipantEchoMessages
+			{...args}
+			echoMessages={[
+				user("submit-1", ""),
+				assistant("reply-1", REPLY_WORDS.slice(0, wordCount).join(" ")),
+			]}
+		/>
+	);
+};
 
 /**
  * The echo ("Explore") thread below the conversation, driven entirely by
@@ -83,17 +122,24 @@ export const SubmittedAwaitingReply: Story = {
 	},
 };
 
-/** Tokens arriving. The last message renders with `loading`, so the spinner sits
- * on a partially written reply rather than on a placeholder. */
+/** Segments arriving. The last message renders with `loading`, so the spinner
+ * sits on a partially written reply rather than on a placeholder.
+ *
+ * The segmentation is deliberate: the reply comes from Gemini 2.5 Pro through
+ * LiteLLM, which hands back chunky multi-word spans rather than one token at a
+ * time, and the server forwards each `delta.content` as it lands. A
+ * character-at-a-time fixture would understate how much the block jumps as it
+ * grows.
+ *
+ * The loop is the story's own artifice, so the state stays watchable in the
+ * sidebar. Nothing restarts a real stream; it ends in `CompletedReply`. */
 export const StreamingReply: Story = {
 	args: {
-		echoMessages: [
-			user("submit-1", ""),
-			assistant("reply-1", "You've described two separate problem areas: the"),
-		],
+		echoMessages: [],
 		isLoading: true,
 		status: "streaming",
 	},
+	render: (args) => <StreamingReplySegments {...args} />,
 };
 
 /** One finished reply. Each message carries a `min-h-[180px]` floor, so a short
