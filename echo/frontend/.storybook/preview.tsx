@@ -9,12 +9,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { isCommonAssetRequest } from "msw";
 import { mswLoader } from "msw-storybook-addon/csf3";
 import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { Toaster } from "@/components/common/Toaster";
 import { languageOptions } from "@/components/language/LanguagePicker";
 import { I18nProvider } from "@/components/layout/I18nProvider";
 import { AppPreferencesProvider } from "@/hooks/useAppPreferences";
-import { useWhitelabelLogo, WhitelabelLogoProvider } from "@/hooks/useWhitelabelLogo";
+import {
+	useWhitelabelLogo,
+	WhitelabelLogoProvider,
+} from "@/hooks/useWhitelabelLogo";
 import { stripLanguagePrefix } from "@/lib/language";
 import { theme } from "@/theme";
 import {
@@ -41,6 +44,15 @@ export type RouterParameters = {
 	path?: string;
 	/** Extra routes, e.g. a navigation destination to land on. */
 	routes?: { path: string; element: React.ReactNode }[];
+	/**
+	 * Values handed to the story through `useOutletContext`. Setting this mounts
+	 * the story as an index child of a parent route that renders `<Outlet
+	 * context>`, because that hook reads the nearest provider and React Router
+	 * exports no way to supply one from a decorator.
+	 *
+	 * Parameters are serialized into the manager, so keep this to plain data.
+	 */
+	outletContext?: unknown;
 };
 
 /**
@@ -79,6 +91,7 @@ const ResolveWhitelabelLogo = ({ children }: PropsWithChildren) => {
 
 const AppProviders = ({
 	children,
+	outletContext,
 	pattern = DEFAULT_ROUTE_PATTERN,
 	path = DEFAULT_INITIAL_PATH,
 	routes = [],
@@ -118,16 +131,35 @@ const AppProviders = ({
 	//
 	// `i18n` is one module-level singleton, so the inner one activating a locale
 	// is what the outer one renders too.
+	//
+	// A story asking for `outletContext` is mounted one level down, as the index
+	// child of a parent route that renders `<Outlet context>`: `useOutletContext`
+	// reads the nearest provider, so the parent route has to be the one to supply
+	// it. `I18nProvider` stays above the `Outlet` for the reason just given.
+	// Stories that want no outlet context keep the flat single-route shape.
 	const router = useMemo(
 		() =>
 			createMemoryRouter(
 				[
-					{ element: <I18nProvider>{children}</I18nProvider>, path: pattern },
+					outletContext === undefined
+						? {
+								element: <I18nProvider>{children}</I18nProvider>,
+								path: pattern,
+							}
+						: {
+								children: [{ element: children, index: true }],
+								element: (
+									<I18nProvider>
+										<Outlet context={outletContext} />
+									</I18nProvider>
+								),
+								path: pattern,
+							},
 					...routes,
 				],
 				{ initialEntries: [path] },
 			),
-		[children, pattern, path, routes],
+		[children, outletContext, pattern, path, routes],
 	);
 
 	return (
@@ -172,6 +204,7 @@ const withAppProviders: Decorator = (Story, context) => {
 		// otherwise survive the switch and need a manual page reload.
 		<AppProviders
 			key={path}
+			outletContext={router.outletContext}
 			pattern={router.pattern}
 			path={path}
 			routes={router.routes}
@@ -215,14 +248,17 @@ const setupMsw = async () => {
 	const { setupWorker } = await import("msw/browser");
 	const worker = setupWorker();
 	await worker.start({
-		quiet: true,
-		serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
 		onUnhandledRequest(request, print) {
-			if (isCommonAssetRequest(request) || isCommonStorybookRequest(request.url)) {
+			if (
+				isCommonAssetRequest(request) ||
+				isCommonStorybookRequest(request.url)
+			) {
 				return;
 			}
 			print.warning();
 		},
+		quiet: true,
+		serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
 	});
 	return worker;
 };
