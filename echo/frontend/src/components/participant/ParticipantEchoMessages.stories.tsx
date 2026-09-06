@@ -63,10 +63,19 @@ export const NoMessages: Story = {
 	},
 };
 
-/** The first echo request in flight: the submitted user message is present but
- * invisible, so the only thing on screen is the "Thinking..." placeholder it
- * unlocks. `status` is anything other than `streaming` or `ready`. */
-export const Thinking: Story = {
+/** The first echo request in flight. Two separate mechanisms put the spinning
+ * placeholder on screen, and neither is the user message being rendered:
+ *
+ * - The placeholder is its own synthetic message, built inline with
+ *   `assistant_reply` and `loading` hardcoded. It renders whenever `status` is
+ *   neither `streaming` nor `ready` and there is no error, which in practice
+ *   means `submitted`.
+ * - It is inside the `echoMessages.length > 0` gate, so on a conversation with
+ *   no prior replies something has to be in the array for it to render at all.
+ *   The empty user message that submitting appends is what satisfies that,
+ *   while itself rendering nothing.
+ */
+export const SubmittedAwaitingReply: Story = {
 	args: {
 		echoMessages: [user("submit-1", "")],
 		isLoading: true,
@@ -76,7 +85,7 @@ export const Thinking: Story = {
 
 /** Tokens arriving. The last message renders with `loading`, so the spinner sits
  * on a partially written reply rather than on a placeholder. */
-export const Streaming: Story = {
+export const StreamingReply: Story = {
 	args: {
 		echoMessages: [
 			user("submit-1", ""),
@@ -89,7 +98,7 @@ export const Streaming: Story = {
 
 /** One finished reply. Each message carries a `min-h-[180px]` floor, so a short
  * reply still occupies a full card. */
-export const Reply: Story = {
+export const CompletedReply: Story = {
 	args: {
 		echoMessages: [user("submit-1", ""), FIRST_REPLY],
 	},
