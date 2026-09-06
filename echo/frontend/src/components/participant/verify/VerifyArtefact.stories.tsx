@@ -84,7 +84,14 @@ const plainText = (markdown: string) =>
 	markdown
 		.replace(/[#*_`]/g, "")
 		.replace(/^\s*-\s*/gm, "")
-		.replace(/\s+/g, " ")
+		// Every run of newlines becomes a sentence break, which is what the
+		// synthesizer paces on. Collapsing them to spaces instead would run the
+		// heading into the first line and every bullet into the next.
+		.replace(/\s*\n+\s*/g, ". ")
+		// ...but not where the line already ended in punctuation, or the break
+		// lands as a doubled full stop.
+		.replace(/([.!?:])\s*\.\s/g, "$1 ")
+		.replace(/[ \t]+/g, " ")
 		.trim();
 
 /** Backs `new Audio()` with the Web Speech API so read-aloud reads the outcome
