@@ -11,6 +11,7 @@ and route shells that wrap it.
 - [x] `participant/ConversationErrorView`
 - [x] `participant/EchoErrorAlert`
 - [x] `participant/ParticipantBody`
+- [x] `participant/ParticipantConversationAudio`
 - [x] `participant/ParticipantConversationAudioContent`
 - [x] `participant/ParticipantConversationText`
 - [x] `participant/ParticipantEchoMessages`
@@ -40,11 +41,6 @@ and route shells that wrap it.
       of it.
 - [ ] `participant/ParticipantInitiateForm` (268 lines) — form states: empty,
       filled, validation errors, submitting, tutorial/consent variants.
-- [ ] `participant/ParticipantConversationAudio` (1108 lines) — the recorder
-      container. Presentational half is already covered by
-      `ParticipantConversationAudioContent`; decide whether the container is
-      worth a story or whether more should be extracted into the content
-      component first.
 
 ### Layout shells (needed to recreate the full interface)
 
@@ -70,6 +66,8 @@ and route shells that wrap it.
 - Interactive/wired-up states go in a single `Playground` story, separate from
   the pinned single-state stories.
 - Fixtures live in `.storybook/fixtures/`, network/browser mocks in
-  `.storybook/mocks/`.
+  `.storybook/mocks/`. `mocks/media.ts` fakes the microphone, `mocks/recorder.ts`
+  fakes `MediaRecorder`; together they let `useChunkedAudioRecorder` record for
+  real in a story.
 - Fixes for Storybook-only rendering differences stay in `.storybook/` or the
   `*.stories.tsx` file — never in production source.
