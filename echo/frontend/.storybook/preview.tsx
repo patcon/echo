@@ -20,13 +20,19 @@ import {
 } from "@/hooks/useWhitelabelLogo";
 import { stripLanguagePrefix } from "@/lib/language";
 import { theme } from "@/theme";
+import { resetHealthStream } from "./mocks/healthStream";
 import {
 	installMediaMock,
 	type MediaParameters,
 	resetMediaMock,
 } from "./mocks/media";
+import {
+	installRecorderMock,
+	type RecorderParameters,
+	resetRecorderMock,
+} from "./mocks/recorder";
 
-export type { MediaParameters };
+export type { MediaParameters, RecorderParameters };
 
 // Most components read :language / :workspaceId / :projectId off the route
 // (useLanguage, useI18nNavigate, useParams), so a story with no router throws.
@@ -44,6 +50,14 @@ export type RouterParameters = {
 	path?: string;
 	/** Extra routes, e.g. a navigation destination to land on. */
 	routes?: { path: string; element: React.ReactNode }[];
+	/**
+	 * Routes nested *inside* the story, for a component that renders its own
+	 * `<Outlet />`. Paths are relative to `pattern`, and an `index: true` entry
+	 * is what the story's outlet shows on arrival. Use this for a route
+	 * container; `outletContext` below is the mirror image, for a component that
+	 * reads a context an outlet above it supplies.
+	 */
+	childRoutes?: { path?: string; index?: boolean; element: React.ReactNode }[];
 	/**
 	 * Values handed to the story through `useOutletContext`. Setting this mounts
 	 * the story as an index child of a parent route that renders `<Outlet
@@ -90,6 +104,7 @@ const ResolveWhitelabelLogo = ({ children }: PropsWithChildren) => {
 };
 
 const AppProviders = ({
+	childRoutes,
 	children,
 	outletContext,
 	pattern = DEFAULT_ROUTE_PATTERN,
@@ -136,13 +151,16 @@ const AppProviders = ({
 	// child of a parent route that renders `<Outlet context>`: `useOutletContext`
 	// reads the nearest provider, so the parent route has to be the one to supply
 	// it. `I18nProvider` stays above the `Outlet` for the reason just given.
-	// Stories that want no outlet context keep the flat single-route shape.
+	// A story asking for `childRoutes` is the container instead, and gets them
+	// nested under its own route so its `<Outlet />` has something to render.
+	// Stories wanting neither keep the flat single-route shape.
 	const router = useMemo(
 		() =>
 			createMemoryRouter(
 				[
 					outletContext === undefined
 						? {
+								children: childRoutes,
 								element: <I18nProvider>{children}</I18nProvider>,
 								path: pattern,
 							}
@@ -159,7 +177,7 @@ const AppProviders = ({
 				],
 				{ initialEntries: [path] },
 			),
-		[children, outletContext, pattern, path, routes],
+		[childRoutes, children, outletContext, pattern, path, routes],
 	);
 
 	return (
@@ -204,6 +222,7 @@ const withAppProviders: Decorator = (Story, context) => {
 		// otherwise survive the switch and need a manual page reload.
 		<AppProviders
 			key={path}
+			childRoutes={router.childRoutes}
 			outletContext={router.outletContext}
 			pattern={router.pattern}
 			path={path}
@@ -285,6 +304,37 @@ const withMediaMocks: Decorator = (Story, context) => {
 	return <Story />;
 };
 
+// `useChunkedAudioRecorder` drives a real `MediaRecorder` over the stream
+// `parameters.media` hands it, and that stream is a stub — so a story
+// recording for real needs `parameters.recorder` too (see
+// `.storybook/mocks/recorder.ts`). Installed and torn down exactly like the
+// media mock above, and for the same reasons.
+// The health-stream mock repeats its events on an interval that `msw`'s
+// `sse()` resolver gives it no way to stop (no close callback, no abort
+// signal), so it is stopped from here instead — on mount as well as unmount,
+// so a story that never opens the stream still clears the last one's.
+const withHealthStreamReset: Decorator = (Story) => {
+	useState(() => {
+		resetHealthStream();
+		return true;
+	});
+	useEffect(() => resetHealthStream, []);
+	return <Story />;
+};
+
+const withRecorderMock: Decorator = (Story, context) => {
+	const recorder = context.parameters.recorder as
+		| RecorderParameters
+		| undefined;
+	useState(() => {
+		resetRecorderMock();
+		if (recorder) installRecorderMock(recorder);
+		return true;
+	});
+	useEffect(() => resetRecorderMock, []);
+	return <Story />;
+};
+
 // Every size-bearing type-scale var `AppPreferencesProvider` writes
 // (`useAppPreferences.tsx:227-263`); line-heights and weights are ratios and
 // aren't touched by the real scale either.
@@ -357,7 +407,13 @@ export const globalTypes: Preview["globalTypes"] = {
 };
 
 const preview: Preview = {
-	decorators: [withAppProviders, withMediaMocks, withPortalFontScale],
+	decorators: [
+		withAppProviders,
+		withMediaMocks,
+		withRecorderMock,
+		withHealthStreamReset,
+		withPortalFontScale,
+	],
 	globalTypes,
 	loaders: [mswLoader(setupMsw)],
 	parameters: {

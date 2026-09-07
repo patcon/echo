@@ -39,6 +39,18 @@ const clearPreviousHealthStreamInterval = () => {
 	if (activeHealthStreamInterval) clearInterval(activeHealthStreamInterval);
 };
 
+/** Same thing, called from a preview decorator on every story mount and
+ * unmount. The resolver's own call above only fires when a story connects to
+ * this path, so a story that hangs — or simply one with no health handler —
+ * used to leave the previous interval writing into a stream the browser had
+ * already closed, logging "Cannot enqueue a chunk into a closed readable
+ * stream" every 20 seconds. Tying the interval to a story's lifetime removes
+ * that dependence on the next story connecting. */
+export const resetHealthStream = () => {
+	clearPreviousHealthStreamInterval();
+	activeHealthStreamInterval = undefined;
+};
+
 /** Sends the given events on connect, then repeats them every 20s until the
  * next story's connection clears this one. Pass `[{ event: "ping" }]` for
  * the common "just stay healthy" case. */

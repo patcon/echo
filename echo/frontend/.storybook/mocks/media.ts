@@ -70,10 +70,22 @@ const fakeStream = (): MediaStream =>
 		getTracks: () => [{ stop: () => {} }],
 	}) as unknown as MediaStream;
 
+/** `disconnect` and `state` below are here for `useChunkedAudioRecorder`, not
+ * for `MicrophoneTest`: the recorder taps the mic stream with a passive VU
+ * meter and tears that tap down in three places (its unmount cleanup effect,
+ * `stopRecording`, and the failed-start `catch`), each of them calling
+ * `meterSource.disconnect()` and guarding the context close on
+ * `state !== "closed"`. A source node without `disconnect` throws from all
+ * three — and a throw in the unmount cleanup leaves React mid-unmount, which
+ * in Storybook reads as a story switch that hangs on the loading spinner
+ * until the page is refreshed. Don't trim these back to what
+ * `MicrophoneTest` alone calls. */
 class FakeAnalyserNode {
 	fftSize = 1024;
 	smoothingTimeConstant = 0.8;
 	frequencyBinCount = 512;
+	connect() {}
+	disconnect() {}
 	getByteTimeDomainData(array: Uint8Array) {
 		const level =
 			currentConfig?.permission === "granted"
@@ -84,13 +96,16 @@ class FakeAnalyserNode {
 }
 
 class FakeAudioContext {
+	state: AudioContextState = "running";
 	createMediaStreamSource() {
-		return { connect: () => {} };
+		return { connect: () => {}, disconnect: () => {} };
 	}
 	createAnalyser() {
 		return new FakeAnalyserNode();
 	}
-	close() {}
+	close() {
+		this.state = "closed";
+	}
 }
 
 const requestedDeviceId = (
