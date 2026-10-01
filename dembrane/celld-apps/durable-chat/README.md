@@ -24,6 +24,8 @@ pnpm run deploy    # builds the client, then deploys
 Open http://localhost:8787 and it redirects to a fresh room; share that URL
 with a second tab to chat between them.
 
-`pnpm dev` runs it locally instead (http://localhost:9876). It rebuilds the
-Worker on change but not the client; rerun `pnpm run build` for that.
-`pnpm run check` typechecks both.
+`pnpm dev` runs it locally instead (http://localhost:9876), with React's
+development build unminified (about 1.1 MB) for its warnings. `pnpm preview`
+runs the minified production client that `deploy` ships (about 190 KB). Both
+rebuild the Worker on change but not the client; rerun `pnpm run build:dev`
+or `pnpm run build` for that. `pnpm run check` typechecks both.

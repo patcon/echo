@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/client/index.tsx --bundle --splitting --format=esm --platform=browser --outdir=public/dist",
+    "build": "esbuild src/client/index.tsx --bundle --splitting --format=esm --platform=browser --outdir=public/dist --minify",
+    "build:dev": "esbuild src/client/index.tsx --bundle --splitting --format=esm --platform=browser --outdir=public/dist",
     "check": "tsc --project src/client && tsc --project src/server",
-    "dev": "pnpm run build && celld dev",
+    "dev": "pnpm run build:dev && exec celld dev",
+    "preview": "pnpm run build && exec celld dev",
     "deploy": "pnpm run build && ../../echo/scripts/remote-dev.sh celld-deploy ."
   },
   "dependencies": {
