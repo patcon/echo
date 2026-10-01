@@ -32,10 +32,10 @@ It needs a Directus to log in to. The quickest is [`directus`](https://github.co
 
 pnpm install
 cp .dev.vars.example .dev.vars
-pnpm dev                         # http://localhost:9877
+pnpm dev --port 9877           # http://localhost:9877
 ```
 
-Open <http://localhost:9877> (not 127.0.0.1: Directus allows `localhost` origins, and its cookie is for `localhost`). It redirects to `/dembrane-dashboard/`, which sends you to its login page. Each example has its own port (the cookie ones use 9878 and 9879), so you can run them side by side.
+Open <http://localhost:9877> (not 127.0.0.1: Directus allows `localhost` origins, and its cookie is for `localhost`). It redirects to `/dembrane-dashboard/`, which sends you to its login page. Each example has its own port (the cookie ones use 9878 and 9879), so you can run them side by side, and Directus's CORS allows that origin. mprocs runs whichever app it points at on 5175 instead.
 
 ## Run it on the remote dev VM
 

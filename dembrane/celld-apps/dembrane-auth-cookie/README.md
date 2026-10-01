@@ -26,10 +26,10 @@ It's built for [`directus`](https://github.com/patcon/cloudflare-examples/tree/m
 
 pnpm install
 cp .dev.vars.example .dev.vars
-pnpm dev                         # http://localhost:9878
+pnpm dev --port 9878           # http://localhost:9878
 ```
 
-Open <http://localhost:9878> (not 127.0.0.1: Directus allows `localhost` origins, and its cookie is for `localhost`). It redirects to `/demo-cookie/`, which sends you to `/login/` until you're logged in. Each example has its own port (`dembrane-auth-token` uses 9877, `dembrane-auth-cookie-ownership` 9879), so you can run them side by side.
+Open <http://localhost:9878> (not 127.0.0.1: Directus allows `localhost` origins, and its cookie is for `localhost`). It redirects to `/demo-cookie/`, which sends you to `/login/` until you're logged in. Each example has its own port (`dembrane-auth-token` uses 9877, `dembrane-auth-cookie-ownership` 9879), so you can run them side by side, and Directus's CORS allows that origin. mprocs runs whichever app it points at on 5175 instead.
 
 ## Run it on the remote dev VM
 

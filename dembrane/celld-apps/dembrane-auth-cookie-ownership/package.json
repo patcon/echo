@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Gate Cloudflare Durable Objects on dembrane's (Directus's) session cookie and organisation ownership",
   "scripts": {
-    "dev": "celld dev --port 9879",
+    "dev": "celld dev",
     "deploy": "../../echo/scripts/remote-dev.sh celld-deploy .",
     "typecheck": "tsc"
   },

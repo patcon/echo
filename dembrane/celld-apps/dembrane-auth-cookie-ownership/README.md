@@ -29,7 +29,7 @@ Everything else is the same as `dembrane-auth-cookie`: the Worker reads Directus
 
 pnpm install
 cp .dev.vars.example .dev.vars
-pnpm dev                         # http://localhost:9879
+pnpm dev --port 9879           # http://localhost:9879
 ```
 
 Open <http://localhost:9879> (not 127.0.0.1: Directus allows `localhost` origins, and its cookie is for `localhost`), and log in as a user of the VM's Directus, such as `admin@dembrane.com` / `admin`. It has no organisations yet, so add an `org`, an `org_membership` and a `project` in its admin app (http://localhost:8055/admin) first. The [`directus`](https://github.com/patcon/cloudflare-examples/tree/main/examples/directus) example seeds these, which the rules below are easiest to follow with:
@@ -41,7 +41,7 @@ Open <http://localhost:9879> (not 127.0.0.1: Directus allows `localhost` origins
 
 So Alice can increment both of her projects and can't see Bob's. Bob can increment Park redesign, and sees Alice's projects but can't increment them. Admin sees and increments everything.
 
-Each example has its own port (`dembrane-auth-token` uses 9877, `dembrane-auth-cookie` 9878), so you can run them side by side.
+Each example has its own port (`dembrane-auth-token` uses 9877, `dembrane-auth-cookie` 9878), so you can run them side by side, and Directus's CORS allows that origin. mprocs runs whichever app it points at on 5175 instead.
 
 ## Run it on the remote dev VM
 

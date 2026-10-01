@@ -13,17 +13,10 @@ It's the Bun-API version of [`dembrane-auth-cookie`](../dembrane-auth-cookie), w
 
 ## Run it
 
-Start the local stack with `mprocs` from `dembrane/` (see "Run it locally" in [`../../platform/README.md`](../../platform/README.md)), then:
-
-```sh
-pnpm install
-pnpm dev                         # http://localhost:9876
-```
-
-Or point the `celld` proc in `dembrane/mprocs.yaml` at this directory. It runs whichever app it points at on 9876 too.
+Run `pnpm install` here, then start the local stack with `mprocs` from `dembrane/` (see "Run it locally" in [`../../platform/README.md`](../../platform/README.md)). Its `celld` proc runs this app on http://localhost:5175. On its own, `pnpm dev` runs it on celld's default, http://localhost:9876.
 
 1. Log in to the dashboard at <http://localhost:5173>. Its `/api` proxy to the API on 8080 means Better Auth sets `dembrane.session_token` for `localhost`.
-2. Open <http://localhost:9876> (not 127.0.0.1: the cookie is for `localhost`). Cookies ignore the port, so the browser sends that cookie to the Worker too, just as a cookie for `.dembrane.com` would reach `demo.dembrane.com`.
+2. Open <http://localhost:5175> (not 127.0.0.1: the cookie is for `localhost`). Cookies ignore the port, so the browser sends that cookie to the Worker too, just as a cookie for `.dembrane.com` would reach `demo.dembrane.com`.
 
 ## The flow
 
@@ -48,11 +41,11 @@ The Worker forwards only the session cookie, not every cookie the browser holds 
 curl -s -c me.txt localhost:8080/api/auth/sign-in/email -H 'content-type: application/json' \
   -H 'origin: http://localhost:5173' -d '{"email":"you@example.com","password":"…"}' -o /dev/null
 
-curl localhost:9876/api/projects            # 401
-curl -b me.txt localhost:9876/api/projects  # your projects
+curl localhost:5175/api/projects            # 401
+curl -b me.txt localhost:5175/api/projects  # your projects
 ```
 
-curl keeps cookies by host, not port, as the browser does, so the cookie from `:8080` is sent to `:9876`.
+curl keeps cookies by host, not port, as the browser does, so the cookie from `:8080` is sent to `:5175`.
 
 ## Going to production
 
