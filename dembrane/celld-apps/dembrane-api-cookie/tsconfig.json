@@ -9,6 +9,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "worker-configuration.d.ts"],
-  "exclude": ["src/client"]
+  // The Worker. The page in src/client/ has tsconfig.client.json.
+  "include": ["src/server.ts", "worker-configuration.d.ts"]
 }
