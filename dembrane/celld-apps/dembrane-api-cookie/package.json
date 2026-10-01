@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Call dembrane's Bun API from a Worker, as the user whose session cookie the browser sent",
   "scripts": {
-    "build": "esbuild src/client/index.tsx --bundle --format=esm --platform=browser --outdir=public/dist --minify",
-    "build:dev": "esbuild src/client/index.tsx --bundle --format=esm --platform=browser --outdir=public/dist",
+    "build": "esbuild src/client/index.tsx --tsconfig=tsconfig.client.json --bundle --format=esm --platform=browser --outdir=public/dist --minify",
+    "build:dev": "esbuild src/client/index.tsx --tsconfig=tsconfig.client.json --bundle --format=esm --platform=browser --outdir=public/dist",
     "dev": "pnpm run build:dev && exec celld dev",
     "typecheck": "tsc && tsc --project tsconfig.client.json",
     "format": "biome format --write .",
