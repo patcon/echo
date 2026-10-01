@@ -8,23 +8,27 @@
 // `localhost` locally (cookies ignore the port), and `.dembrane.com` in
 // production (AUTH_COOKIE_DOMAIN).
 
-const SESSION_COOKIE = /^(__Secure-)?dembrane\.session_token$/;
+import { type Context, Hono } from "hono";
+import { getCookie } from "hono/cookie";
+
+type AppEnv = { Bindings: Env };
+
+const SESSION_COOKIES = ["__Secure-dembrane.session_token", "dembrane.session_token"];
 
 // Only the session cookie goes on to the API, not every cookie the browser
-// holds for the domain.
-function sessionCookie(req: Request): string | null {
-  for (const pair of (req.headers.get("cookie") ?? "").split(/;\s*/)) {
-    const name = pair.slice(0, pair.indexOf("="));
-    if (SESSION_COOKIE.test(name)) return pair;
-  }
-  return null;
+// holds for the domain. getCookie decodes the value, and Better Auth encodes
+// its signature's `+`, `/` and `=`, so encode it again as the browser sent it.
+function sessionCookie(c: Context<AppEnv>): string | null {
+  const cookies = getCookie(c);
+  const name = SESSION_COOKIES.find((n) => cookies[n] !== undefined);
+  return name ? `${name}=${encodeURIComponent(cookies[name]!)}` : null;
 }
 
 // GET an API path as the user, passing the API's status and body straight back.
-async function asUser(env: Env, req: Request, path: string): Promise<Response> {
-  const cookie = sessionCookie(req);
-  if (!cookie) return Response.json({ error: "not logged in" }, { status: 401 });
-  const res = await fetch(new URL(path, env.API_URL), {
+async function asUser(c: Context<AppEnv>, path: string): Promise<Response> {
+  const cookie = sessionCookie(c);
+  if (!cookie) return c.json({ error: "not logged in" }, 401);
+  const res = await fetch(new URL(path, c.env.API_URL), {
     headers: { cookie, accept: "application/json" },
     signal: AbortSignal.timeout(5000),
   });
@@ -34,33 +38,25 @@ async function asUser(env: Env, req: Request, path: string): Promise<Response> {
   });
 }
 
-export default {
-  async fetch(req, env): Promise<Response> {
-    const { pathname } = new URL(req.url);
-    if (req.method !== "GET") return new Response("method not allowed", { status: 405 });
-    switch (pathname) {
-      case "/api/config":
-        return Response.json({ dashboardUrl: env.DASHBOARD_URL });
-      case "/api/me":
-        return asUser(env, req, "/api/v2/me");
-      case "/api/projects":
-        return asUser(env, req, "/api/v2/bff/projects");
-      case "/api/conversations": {
-        // ?project_id=… The API checks that you may read that project.
-        const projectId = new URL(req.url).searchParams.get("project_id");
-        if (!projectId) return Response.json({ error: "project_id is required" }, { status: 400 });
-        const query = new URLSearchParams({
-          project_id: projectId,
-          fields: "id,title,participant_name,created_at",
-          limit: "100",
-        });
-        return asUser(env, req, `/api/v2/bff/conversations?${query}`);
-      }
-      case "/":
-        // celld serves no index.html for `/`, so the request falls through to here.
-        return env.ASSETS.fetch(new URL("/index.html", req.url));
-      default:
-        return new Response("not found", { status: 404 });
-    }
-  },
-} satisfies ExportedHandler<Env>;
+const app = new Hono<AppEnv>();
+
+app.get("/api/config", (c) => c.json({ dashboardUrl: c.env.DASHBOARD_URL }));
+app.get("/api/me", (c) => asUser(c, "/api/v2/me"));
+app.get("/api/projects", (c) => asUser(c, "/api/v2/bff/projects"));
+
+// ?project_id=… The API checks that you may read that project.
+app.get("/api/conversations", async (c) => {
+  const projectId = c.req.query("project_id");
+  if (!projectId) return c.json({ error: "project_id is required" }, 400);
+  const query = new URLSearchParams({
+    project_id: projectId,
+    fields: "id,title,participant_name,created_at",
+    limit: "100",
+  });
+  return asUser(c, `/api/v2/bff/conversations?${query}`);
+});
+
+// celld serves no index.html for `/`, so the request falls through to here.
+app.get("/", (c) => c.env.ASSETS.fetch(new URL("/index.html", c.req.url)));
+
+export default app;
