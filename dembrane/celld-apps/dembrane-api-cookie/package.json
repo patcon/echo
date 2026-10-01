@@ -1,0 +1,20 @@
+{
+  "name": "dembrane-api-cookie",
+  "version": "1.0.0",
+  "description": "Call dembrane's Bun API from a Worker, as the user whose session cookie the browser sent",
+  "scripts": {
+    "dev": "celld dev",
+    "typecheck": "tsc"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.5",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "private": true,
+  "type": "module",
+  "pnpm": {
+    "ignoredBuiltDependencies": ["esbuild"]
+  }
+}
