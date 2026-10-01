@@ -9,7 +9,6 @@
     ul { padding-left: 1.2em; }
     ul ul { font-size: 0.9rem; margin: 2px 0 8px; }
     li { margin: 4px 0; }
-    #projects:empty { display: none; }
   </style>
 </head>
 <body>
@@ -18,72 +17,11 @@
   <main class="centered">
     <h1>Your projects and conversations</h1>
     <div class="panel">
-      <p id="whoami">Loading…</p>
-      <ul id="projects"></ul>
+      <div id="root"></div>
       <p class="muted hint">The browser sends dembrane's session cookie to this Worker, which passes it on to the API's <code>GET /api/v2/bff/projects</code>, and <code>GET /api/v2/bff/conversations</code> for each project. The API decides whose projects these are.</p>
     </div>
   </main>
 
-  <script type="module">
-    const whoami = document.getElementById("whoami");
-    const list = document.getElementById("projects");
-
-    const get = async (path) => {
-      const res = await fetch(path);
-      return { status: res.status, body: await res.json().catch(() => null) };
-    };
-
-    async function showConversations(projectId, sub) {
-      const res = await get(`/api/conversations?project_id=${encodeURIComponent(projectId)}`);
-      sub.replaceChildren();
-      const item = (text, className = "") => sub.append(Object.assign(document.createElement("li"), { textContent: text, className }));
-      if (res.status !== 200) return item(`HTTP ${res.status} ${JSON.stringify(res.body)}`, "error");
-      if (!res.body.length) return item("No conversations.");
-      for (const c of res.body) {
-        const date = c.created_at ? new Date(c.created_at).toLocaleDateString() : "";
-        item([c.title || c.participant_name || "(untitled)", date].filter(Boolean).join(" · "));
-      }
-    }
-
-    const me = await get("/api/me");
-    if (me.status === 401) {
-      const { body: config } = await get("/api/config");
-      whoami.innerHTML = "";
-      whoami.append("You're not logged in to dembrane. ");
-      const link = Object.assign(document.createElement("a"), {
-        href: `${config.dashboardUrl}/login`,
-        textContent: "Log in on the dashboard",
-      });
-      whoami.append(link, ", then come back and reload.");
-    } else if (me.status !== 200) {
-      whoami.className = "error";
-      whoami.textContent = `GET /api/me: HTTP ${me.status} ${JSON.stringify(me.body)}`;
-    } else {
-      whoami.textContent = `Logged in as ${me.body.display_name || me.body.email}.`;
-      const projects = await get("/api/projects");
-      if (projects.status !== 200) {
-        // A user who hasn't finished onboarding gets a 403 here.
-        whoami.append(" ");
-        const err = Object.assign(document.createElement("span"), {
-          className: "error",
-          textContent: `GET /api/projects: HTTP ${projects.status} ${JSON.stringify(projects.body)}`,
-        });
-        whoami.append(err);
-      } else if (!projects.body.length) {
-        whoami.append(" You have no projects.");
-      } else {
-        for (const p of projects.body) {
-          const li = document.createElement("li");
-          li.append(p.name || "(untitled)", " ");
-          li.append(Object.assign(document.createElement("code"), { className: "muted", textContent: p.id }));
-          const sub = Object.assign(document.createElement("ul"), { className: "muted" });
-          sub.append(Object.assign(document.createElement("li"), { textContent: "Loading conversations…" }));
-          li.append(sub);
-          list.append(li);
-          showConversations(p.id, sub); // not awaited: every project's list loads at once
-        }
-      }
-    }
-  </script>
+  <script type="module" src="/dist/index.js"></script>
 </body>
 </html>

@@ -18,6 +18,8 @@ Run `pnpm install` here, then start the local stack with `mprocs` from `dembrane
 1. Log in to the dashboard at <http://localhost:5173>. Its `/api` proxy to the API on 8080 means Better Auth sets `dembrane.session_token` for `localhost`.
 2. Open <http://localhost:5175> (not 127.0.0.1: the cookie is for `localhost`). Cookies ignore the port, so the browser sends that cookie to the Worker too, just as a cookie for `.dembrane.com` would reach `demo.dembrane.com`.
 
+The page is React, in `src/client/`. `pnpm dev` bundles it once with esbuild into `public/dist/` before celld starts, so restart it (in mprocs, select `celld` and press `r`) after you change the page. The Worker in `src/index.ts` rebuilds on its own.
+
 ## The flow
 
 ```
