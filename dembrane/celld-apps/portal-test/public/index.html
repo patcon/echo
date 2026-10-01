@@ -3,23 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>API Cookie Demo</title>
+  <title>Portal Test</title>
   <link rel="stylesheet" href="/style.css">
   <style>
+    .panel { position: relative; }
+    .details { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 16px 0 20px; }
+    .details dt { color: var(--muted); }
+    .details dd { margin: 0; overflow-wrap: anywhere; }
+    .admin-link { position: absolute; top: 12px; right: 12px; font-size: 0.8rem; padding: 2px 8px; }
+    dialog { width: min(560px, calc(100vw - 32px)); max-height: 80vh; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); padding: 20px; }
+    dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+    dialog header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
     ul { padding-left: 1.2em; }
-    ul ul { font-size: 0.9rem; margin: 2px 0 8px; }
     li { margin: 4px 0; }
   </style>
 </head>
 <body>
-  <div class="banner">Placeholder: pretend this is <strong>demo.dembrane.com</strong>, in the same cookie domain as the dembrane dashboard.</div>
+  <div class="banner">Placeholder: pretend this is <strong>portal.dembrane.com</strong>, in the same cookie domain as the dembrane dashboard.</div>
 
   <main class="centered">
-    <h1>Your projects and conversations</h1>
     <div class="panel">
       <div id="root"></div>
-      <p class="muted hint">The browser sends dembrane's session cookie to this Worker, which passes it on to the API's <code>GET /api/v2/bff/projects</code>, and <code>GET /api/v2/bff/conversations</code> for each project. The API decides whose projects these are.</p>
     </div>
+    <p class="muted hint">The start page loads the project from the API's public <code>GET /api/participant/projects/:id</code>, as the portal does. If you're logged in to the dashboard, the Worker passes your session cookie on to <code>GET /api/v2/projects/:id</code>, and an admin or owner of the project gets a link to its conversations.</p>
   </main>
 
   <script type="module" src="/dist/index.js"></script>

@@ -24,12 +24,12 @@ function sessionCookie(c: Context<AppEnv>): string | null {
   return name ? `${name}=${encodeURIComponent(cookies[name]!)}` : null;
 }
 
-// GET an API path as the user, passing the API's status and body straight back.
-async function asUser(c: Context<AppEnv>, path: string): Promise<Response> {
-  const cookie = sessionCookie(c);
-  if (!cookie) return c.json({ error: "not logged in" }, 401);
+// GET an API path, passing the API's status and body straight back.
+async function get(c: Context<AppEnv>, path: string, cookie?: string): Promise<Response> {
+  const headers: Record<string, string> = { accept: "application/json" };
+  if (cookie) headers.cookie = cookie;
   const res = await fetch(new URL(path, c.env.API_URL), {
-    headers: { cookie, accept: "application/json" },
+    headers,
     signal: AbortSignal.timeout(5000),
   });
   return new Response(res.body, {
@@ -38,11 +38,30 @@ async function asUser(c: Context<AppEnv>, path: string): Promise<Response> {
   });
 }
 
+// The same, as the user. No cookie → 401, without calling the API.
+function asUser(c: Context<AppEnv>, path: string): Promise<Response> | Response {
+  const cookie = sessionCookie(c);
+  if (!cookie) return c.json({ error: "not logged in" }, 401);
+  return get(c, path, cookie);
+}
+
 const app = new Hono<AppEnv>();
 
 app.get("/api/config", (c) => c.json({ dashboardUrl: c.env.DASHBOARD_URL }));
 app.get("/api/me", (c) => asUser(c, "/api/v2/me"));
 app.get("/api/projects", (c) => asUser(c, "/api/v2/bff/projects"));
+
+// What the portal's start page loads: the project as participants see it. Public,
+// so no cookie goes with it. 403 once the project stops taking conversations.
+app.get("/api/participant/projects/:project_id", (c) =>
+  get(c, `/api/participant/projects/${encodeURIComponent(c.req.param("project_id"))}`),
+);
+
+// The project as you see it in the dashboard, with your `role` on it. A 403 or 404
+// means you can't read it, as for anyone who isn't in its workspace.
+app.get("/api/projects/:project_id", (c) =>
+  asUser(c, `/api/v2/projects/${encodeURIComponent(c.req.param("project_id"))}`),
+);
 
 // ?project_id=… The API checks that you may read that project.
 app.get("/api/conversations", async (c) => {
@@ -56,7 +75,10 @@ app.get("/api/conversations", async (c) => {
   return asUser(c, `/api/v2/bff/conversations?${query}`);
 });
 
-// celld serves no index.html for `/`, so the request falls through to here.
-app.get("/", (c) => c.env.ASSETS.fetch(new URL("/index.html", c.req.url)));
+// Any other path is a page, routed in the browser as the portal's are, such as
+// /en-US/<project id>/start. No file in ./public matches it (nor `/`: celld serves
+// no index.html for it), so the request falls through to here.
+app.get("/api/*", (c) => c.json({ error: "not found" }, 404));
+app.get("*", (c) => c.env.ASSETS.fetch(new URL("/index.html", c.req.url)));
 
 export default app;
