@@ -8,7 +8,7 @@ interface __BaseEnv_Env {
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
-		mainModule: typeof import("./src/index");
+		mainModule: typeof import("./src/server");
 	}
 	interface Env extends __BaseEnv_Env {}
 }

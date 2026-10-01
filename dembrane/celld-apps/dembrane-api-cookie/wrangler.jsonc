@@ -1,6 +1,6 @@
 {
   "name": "dembrane-api-cookie",
-  "main": "src/index.ts",
+  "main": "src/server.ts",
   "compatibility_date": "2026-09-23",
 
   // Static pages in ./public. Only /api/* runs the Worker first.
@@ -8,7 +8,7 @@
     "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"],
-    // celld serves no index.html for `/`, so the Worker does (see src/index.ts).
+    // celld serves no index.html for `/`, so the Worker does (see src/server.ts).
     "html_handling": "none"
   },
 
