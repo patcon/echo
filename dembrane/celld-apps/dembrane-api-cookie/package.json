@@ -6,11 +6,14 @@
     "build": "esbuild src/client/index.tsx --bundle --format=esm --platform=browser --outdir=public/dist --minify",
     "build:dev": "esbuild src/client/index.tsx --bundle --format=esm --platform=browser --outdir=public/dist",
     "dev": "pnpm run build:dev && exec celld dev",
-    "typecheck": "tsc && tsc --project tsconfig.client.json"
+    "typecheck": "tsc && tsc --project tsconfig.client.json",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
   },
   "license": "MIT",
   "packageManager": "pnpm@10.34.5",
   "devDependencies": {
+    "@biomejs/biome": "2.5.14",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "esbuild": "^0.28.2",
