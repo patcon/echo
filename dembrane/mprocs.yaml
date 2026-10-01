@@ -17,7 +17,7 @@ procs:
     # Point cwd at another app in celld-apps/ to run that one instead. Whichever
     # app it is, it's on http://localhost:5175: no app's `dev` script sets a
     # port of its own.
-    cwd: "<CONFIG_DIR>/celld-apps/dembrane-api-cookie"
+    cwd: "<CONFIG_DIR>/celld-apps/portal-test"
     shell: "pnpm dev --port 5175"
     # By default celld waits 25s for open WebSockets to close before it stops.
     # We force this to be smaller in development.
