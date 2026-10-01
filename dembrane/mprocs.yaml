@@ -9,19 +9,22 @@ procs:
     shell: "bun --env-file=.env.local apps/worker/src/main.ts"
   dashboard:
     cwd: "<CONFIG_DIR>/frontend"
-    shell: "pnpm dev"
+    shell: "pnpm dev --port 5173"
   portal:
     cwd: "<CONFIG_DIR>/frontend"
-    shell: "pnpm participant:dev"
-  migrate:
-    cwd: "<CONFIG_DIR>/platform"
-    shell: "bun run db:migrate && bun run seed:verification-topics"
-    autostart: false
+    shell: "pnpm participant:dev --port 5174"
   celld:
-    # Point cwd at another app in celld-apps/ to run that one instead.
-    cwd: "<CONFIG_DIR>/celld-apps/durable-chat"
-    shell: "pnpm dev"
+    # Point cwd at another app in celld-apps/ to run that one instead. Whichever
+    # app it is, it's on http://localhost:9876: this skips the app's own `dev`
+    # script, and the --port in it, but runs its `build:dev` if it has one.
+    cwd: "<CONFIG_DIR>/celld-apps/dembrane-api-cookie"
+    shell: "pnpm dev --port 5175"
     # By default celld waits 25s for open WebSockets to close before it stops.
     # We force this to be smaller in development.
     env:
       CELLD_SHUTDOWN_TOTAL_MS: "4000"
+
+  migrate:
+    cwd: "<CONFIG_DIR>/platform"
+    shell: "bun run db:migrate && bun run seed:verification-topics"
+    autostart: false
