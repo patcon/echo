@@ -1,0 +1,34 @@
+{
+  "name": "portal-test",
+  "version": "1.0.0",
+  "description": "Call dembrane's Bun API from a Worker, as the user whose session cookie the browser sent",
+  "scripts": {
+    "build": "esbuild src/client/index.tsx --tsconfig=tsconfig.client.json --bundle --format=esm --platform=browser --outdir=public/dist --minify",
+    "build:dev": "esbuild src/client/index.tsx --tsconfig=tsconfig.client.json --bundle --format=esm --platform=browser --outdir=public/dist",
+    "dev": "pnpm run build:dev && exec celld dev",
+    "typecheck": "tsc && tsc --project tsconfig.client.json",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.5",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "private": true,
+  "type": "module",
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "dependencies": {
+    "hono": "^4.13.12",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}

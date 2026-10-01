@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["es2024", "DOM"],
+    "types": []
+  },
+  // The page, which runs in the browser rather than the Worker.
+  "include": ["src/client"]
+}

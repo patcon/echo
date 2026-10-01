@@ -1,0 +1,22 @@
+{
+  "name": "portal-test",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-09-23",
+
+  // Static pages in ./public. Only /api/* runs the Worker first.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    // celld serves no index.html for `/`, so the Worker does (see src/server.ts).
+    "html_handling": "none"
+  },
+
+  // Values for the local stack that `mprocs` runs from dembrane/.
+  "vars": {
+    // The Bun API, as the Worker reaches it.
+    "API_URL": "http://localhost:8080",
+    // The dashboard, where the page sends you to log in.
+    "DASHBOARD_URL": "http://localhost:5173"
+  }
+}
